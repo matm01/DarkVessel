@@ -3,7 +3,7 @@ import shutil
 import ee
 
 
-def get_image(index: int, coordinates: tuple, dates: tuple, dimensions: str = '600x600'):
+def get_image(index: int, coordinates: tuple, dates: tuple, dimensions: str = '600x600', region_size: int = 3000):
     """Handle the HTTP requests to download an image."""
 
     def mask_edge(image):
@@ -13,7 +13,7 @@ def get_image(index: int, coordinates: tuple, dates: tuple, dimensions: str = '6
 
     # Generate the desired image from the given point.
     point = ee.Geometry.Point(coordinates)
-    region = point.buffer(3000).bounds()
+    region = point.buffer(region_size).bounds()
     image = (
         (
             ee.ImageCollection('COPERNICUS/S1_GRD')
