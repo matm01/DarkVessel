@@ -3,7 +3,7 @@ import shutil
 import ee
 
 
-def get_image(index: int, coordinates: tuple, dates: tuple, dimensions: str = '600x600', region_size: int = 3000):
+def get_image(index: int, coordinates: tuple, dates: tuple, dimensions: str = '640x640', region_size: int = 3000):
     """Handle the HTTP requests to download an image."""
 
     def mask_edge(image):
