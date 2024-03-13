@@ -74,28 +74,28 @@ def split_image(image: np.ndarray, multiplier: int = 1) -> np.ndarray:
     return tiled_array
 
 
-def combine_tiles(predicted_tiles: list, multiplier: int) -> np.ndarray:
+def combine_predictions(tiles: list, repetitions: int) -> np.ndarray:
     """
-    Combine predicted tiles into a single numpy array by concatenating them row-wise.
+    Combines a list of tiles into a single array by concatenating them row-wise.
 
-    Parameters:
-    - predicted_tiles (list): List of predicted tiles to combine.
-    - multiplier (int): Multiplier for the number of times to repeat the concatenation process.
+    Args:
+        tiles (list): List of tiles to combine.
+        repetitions (int): Number of repetitions for concatenation.
 
     Returns:
-    - np.ndarray: Numpy array containing the combined tiles.
+        np.ndarray: Array containing the combined tiles.
     """
-    for i in range(multiplier):
-        first_tile = predicted_tiles[5 * i].plot()
-        combined_row = np.concatenate((first_tile, predicted_tiles[(5 * i) + 1].plot()), axis=1)
+    combined_tiles = None
 
-        for j in range(2, multiplier):
-            predicted_tile = predicted_tiles[(5 * i) + j].plot()
-            combined_row = np.concatenate((combined_row, predicted_tile), axis=1)
+    for i in range(repetitions):
+        row = np.concatenate([tiles[5 * i].plot(), tiles[5 * i + 1].plot()], axis=1)
+
+        for j in range(2, repetitions):
+            row = np.concatenate([row, tiles[5 * i + j].plot()], axis=1)
 
         if i == 0:
-            combined_tiles = combined_row
+            combined_tiles = row
         else:
-            combined_tiles = np.concatenate((combined_tiles, combined_row), axis=0)
+            combined_tiles = np.concatenate([combined_tiles, row], axis=0)
 
     return combined_tiles
