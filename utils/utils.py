@@ -85,8 +85,6 @@ def combine_predictions(tiles: list, repetitions: int) -> np.ndarray:
     Returns:
         np.ndarray: Array containing the combined tiles.
     """
-    combined_tiles = None
-
     for i in range(repetitions):
         row = np.concatenate([tiles[5 * i].plot(), tiles[5 * i + 1].plot()], axis=1)
 
