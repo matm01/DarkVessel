@@ -1,15 +1,31 @@
 import requests
 import shutil
 import ee
+import numpy as np
 
 
-def get_image(index: int, coordinates: tuple, dates: tuple, dimensions: str = '640x640', region_size: int = 3000):
-    """Handle the HTTP requests to download an image."""
+def get_image(index: int, coordinates: tuple, dates: tuple, multiplier: int = 1):
+    """
+    Function to get an image from a given point and dates, with optional multiplier for dimensions.
+
+    Args:
+        index (int): The index of the image.
+        coordinates (tuple): The coordinates of the point.
+        dates (tuple): The start and end dates for filtering the image collection.
+        multiplier (int, optional): A multiplier for the dimensions of the image. Defaults to 1.
+    """
 
     def mask_edge(image):
         edge = image.lt(-30.0)
         masked_image = image.mask().And(edge.Not())
         return image.updateMask(masked_image)
+
+    if multiplier == 1:
+        dimensions = '640x640'
+    else:
+        dimensions = f'{640 * multiplier}x{640 * multiplier}'
+
+    region_size = 2000 * multiplier
 
     # Generate the desired image from the given point.
     point = ee.Geometry.Point(coordinates)
@@ -36,7 +52,50 @@ def get_image(index: int, coordinates: tuple, dates: tuple, dimensions: str = '6
     if r.status_code != 200:
         raise r.raise_for_status()
 
-    filename = 'img_%05d.jpg' % index
+    filename = 'data/download/img_%05d.jpg' % index
     with open(filename, 'wb') as out_file:
         shutil.copyfileobj(r.raw, out_file)
     print("Done: ", index)
+
+
+def split_image(image: np.ndarray, multiplier: int = 1) -> np.ndarray:
+    """
+    Split the input image into a tiled array based on the specified multiplier.
+
+    Args:
+        image (np.ndarray): The input image to be split.
+        multiplier (int, optional): The multiplier to determine the tiling size. Defaults to 1.
+
+    Returns:
+        np.ndarray: The tiled array representing the split image.
+    """
+    tiled_array = image.reshape(multiplier, 640, multiplier, 640, 3)
+    tiled_array = tiled_array.swapaxes(1, 2)
+    return tiled_array
+
+
+def combine_tiles(predicted_tiles: list, multiplier: int) -> np.ndarray:
+    """
+    Combine predicted tiles into a single numpy array by concatenating them row-wise.
+
+    Parameters:
+    - predicted_tiles (list): List of predicted tiles to combine.
+    - multiplier (int): Multiplier for the number of times to repeat the concatenation process.
+
+    Returns:
+    - np.ndarray: Numpy array containing the combined tiles.
+    """
+    for i in range(multiplier):
+        first_tile = predicted_tiles[5 * i].plot()
+        combined_row = np.concatenate((first_tile, predicted_tiles[(5 * i) + 1].plot()), axis=1)
+
+        for j in range(2, multiplier):
+            predicted_tile = predicted_tiles[(5 * i) + j].plot()
+            combined_row = np.concatenate((combined_row, predicted_tile), axis=1)
+
+        if i == 0:
+            combined_tiles = combined_row
+        else:
+            combined_tiles = np.concatenate((combined_tiles, combined_row), axis=0)
+
+    return combined_tiles
