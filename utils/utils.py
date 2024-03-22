@@ -99,3 +99,43 @@ def combine_predictions(tiles: list, repetitions: int) -> np.ndarray:
             combined_tiles = np.concatenate([combined_tiles, row], axis=0)
 
     return combined_tiles
+
+
+def download_all_tifs():
+    """
+    Downloads all the TIFF files from the specified Google Cloud Storage bucket that are not already present in the local directory.
+
+    This function uses the Google Cloud Storage Python client library to connect to the specified bucket and download the TIFF files that are not already present in the local directory. The bucket name is obtained from the 'DV_BUCKET' environment variable. The downloaded files are saved in the '../data/download/' directory.
+
+    Parameters:
+    None
+
+    Returns:
+    None
+    """
+    client = storage.Client()
+    bucket = client.get_bucket(os.environ['DV_BUCKET'])
+    dir_list = [file for file in os.listdir('../data/download/') if file.endswith('.tif')]
+
+    for blob in bucket.list_blobs():
+        if blob.name.endswith('.tif') and blob.name not in dir_list:
+            blob.download_to_filename('../data/download/' + blob.name)
+
+
+def download_image(filename: str) -> io.BytesIO:
+    """
+    Downloads an image from a GC Bucket and returns it as a file-like object.
+
+    Args:
+        filename (str): The name of the file to download.
+
+    Returns:
+        file_obj (io.BytesIO): A file-like object containing the downloaded image.
+    """
+    client = storage.Client()
+    bucket = client.get_bucket(os.environ['DV_BUCKET'])
+
+    file_obj = io.BytesIO()
+    img_blob = bucket.blob(filename)
+    img_blob.download_to_file(file_obj)
+    return file_obj
