@@ -1,18 +1,18 @@
 import ee
-from gee import get_crs, get_crs_transform
+from gee import get_crs, get_crs_transform, get_image_id
 import json
 from typing import List, Optional
-import ee
 
 
 def export_image_to_gcs(
-    image: ee.Image,
-    bucket_name: str,
-    filename: Optional[str] = None,
-    resolution: int = 10,
-    region_of_interest: Optional[List[float]] = None,
-    export_format: str = 'GeoTIFF'
-    ) -> ee.batch.Task:
+        image: ee.Image,
+        bucket_name: str,
+        folder_name: str,
+        filename: Optional[str] = None,
+        resolution: int = 10,
+        region_of_interest: Optional[List[float]] = None,
+        export_format: str = 'GeoTIFF'
+        ) -> ee.batch.Task:
     """
     Exports an image to Google Cloud Storage (GCS).
 
@@ -32,7 +32,8 @@ def export_image_to_gcs(
     image_transform = get_crs_transform(image)
 
     if not filename:
-        filename = f'{image}'
+        image_id = get_image_id(image)
+        filename = f'{folder_name}/{image_id}'
 
     if not region_of_interest:
         region_of_interest = image.geometry()
@@ -58,7 +59,7 @@ def get_task_status(task):
     return task.status()
 
 
-def log_task_status(task, log_file='task_status.json'):
+def log_task_status(task, log_file='../logs/task_status.json'):
     # Check the status of the task
     status = get_task_status(task)
 
