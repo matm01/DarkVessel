@@ -1,11 +1,11 @@
-import ee
-import io
-import numpy as np
-import os
 import requests
 import shutil
-
+import ee
+import io
+import matplotlib.pyplot as plt
+import numpy as np
 from google.cloud import storage
+import os
 
 
 def get_image(index: int, coordinates: tuple, dates: tuple, multiplier: int = 1):
@@ -89,11 +89,38 @@ def combine_predictions(tiles: list, repetitions: int) -> np.ndarray:
     Returns:
         np.ndarray: Array containing the combined tiles.
     """
+
     for i in range(repetitions):
         row = np.concatenate([tiles[5 * i].plot(), tiles[5 * i + 1].plot()], axis=1)
 
         for j in range(2, repetitions):
             row = np.concatenate([row, tiles[5 * i + j].plot()], axis=1)
+
+        if i == 0:
+            combined_tiles = row
+        else:
+            combined_tiles = np.concatenate([combined_tiles, row], axis=0)
+
+    return combined_tiles
+
+
+def combine_predictions_from_array(tiles: list, n_rows: int, n_columns: int) -> np.ndarray:
+    """
+    Combines an array of tiles into a single array by concatenating them row-wise.
+
+    Args:
+        tiles (list): List of tiles to combine.
+        repetitions (int): Number of repetitions for concatenation.
+
+    Returns:
+        np.ndarray: Array containing the combined tiles.
+    """
+
+    for i in range(n_rows):
+        row = np.concatenate([tiles[i][0], tiles[i][1]], axis=1)
+
+        for j in range(2, n_columns):
+            row = np.concatenate([row, tiles[i][j]], axis=1)
 
         if i == 0:
             combined_tiles = row
@@ -141,3 +168,48 @@ def download_image(filename: str) -> io.BytesIO:
     img_blob = bucket.blob(filename)
     img_blob.download_to_file(file_obj)
     return file_obj
+
+
+def plot_tiles(tiles: list, n_rows, n_columns) -> None:
+    """
+    Plots a array of tiles.
+
+    Args:
+        tiles (list): List of tiles to plot.
+
+    Returns:
+        None
+    """
+    fig, axes = plt.subplots(nrows=n_rows, ncols=n_columns, figsize=(n_columns // 3, n_rows // 3))
+
+    for i in range(n_rows):
+        for j in range(n_columns):
+            axes[i, j].imshow(tiles[i][j], cmap='gray')
+            axes[i, j].axis('off')
+
+    plt.tight_layout(pad=0.4, h_pad=0.2, w_pad=0.2)
+    plt.show()
+
+
+def remove_land_tiles(tiles, threshold):
+    """
+    Removes land tiles from the given tiles array based on a threshold value and converts the remaining tiles to 3-channel grayscale.
+
+    Parameters:
+        tiles (ndarray): The input array of tiles.
+        threshold (float): The threshold value to determine if a tile is land or not.
+
+    Returns:
+        tuple: A tuple containing two lists. The first list contains the indices of the remaining tiles.
+        The second list contains the tiles themselves.
+    """
+    list_of_tiles = []
+    list_of_idx = []
+    n_rows, n_columns = tiles.shape[:2]
+    for i in range(n_rows):
+        for j in range(n_columns):
+            if tiles[i][j].mean() < threshold:
+                list_of_tiles.append(np.dstack([tiles[i][j], tiles[i][j], tiles[i][j]]))
+                list_of_idx.append((i, j))
+    print(f'The list contains {len(list_of_idx)} tiles.')
+    return list_of_idx, list_of_tiles
