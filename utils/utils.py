@@ -1,9 +1,11 @@
 import ee
-from gee import get_crs, get_crs_transform
+import io
 import numpy as np
+import os
 import requests
 import shutil
-import sys
+
+from google.cloud import storage
 
 
 def get_image(index: int, coordinates: tuple, dates: tuple, multiplier: int = 1):
