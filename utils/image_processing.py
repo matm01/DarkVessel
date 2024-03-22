@@ -41,9 +41,9 @@ def stretch_image(db_img: np.ndarray, min: int = -30, max: int = 0) -> np.ndarra
         np.ndarray: The stretched image, scaled between 0 and 255, with any NaN values converted to 0.
     """
     cliped_image = np.clip(db_img, min, max)
-    scaled_image = (cliped_image - min) / (max - min)
-    scaled_image = np.nan_to_num(scaled_image)
-    return (scaled_image * 255).astype('uint8')
+    scaled_image = ((cliped_image - min) / (max - min)) * 255
+    scaled_image = np.nan_to_num(scaled_image, nan=255.0)
+    return (scaled_image).astype('uint8')
 
 
 def split_image(image: np.ndarray) -> np.ndarray:
