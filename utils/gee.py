@@ -1,4 +1,5 @@
 import ee
+from typing import Generator
 
 
 SENTINEL1_GRD = 'COPERNICUS/S1_GRD'
@@ -16,7 +17,11 @@ def format_date(date: str) -> ee.Date:
     return ee.Date(date)
 
 
-def generate_date_range(start: str, end: str, timedelta: int = 1) -> ee.DateRange:
+def generate_date_range(
+        start: str,
+        end: str,
+        timedelta: int = 1
+        ) -> Generator[ee.DateRange, None, None]:
     """Generate a date range between the start and end dates.
 
     Args:
@@ -110,20 +115,6 @@ def get_image_from_list(image_list: ee.List, image_index: int = 0) -> ee.Image:
     return ee.Image(image_list.get(image_index))
 
 
-def get_image_from_id(image_id: str, collection: str = SENTINEL1_GRD) -> ee.Image:
-    """Get an image from the image ID.
-
-    Args:
-        image_id: A string representing the ID of the image.
-        collection: A string representing the image collection.
-
-    Returns:
-        An ee.Image object representing the retrieved image.
-    """
-    image = ee.Image(f'{collection}/{image_id}')
-    return image
-
-
 def get_image_id(image: ee.Image) -> str:
     """Get the ID of the image.
 
@@ -134,30 +125,6 @@ def get_image_id(image: ee.Image) -> str:
         A string representing the ID of the image.
     """
     return image.get('system:index').getInfo()
-
-
-def get_image_date(image: ee.Image) -> ee.Date:
-    """Get the date of the image.
-
-    Args:
-        image: An ee.Image object representing the image.
-
-    Returns:
-        An ee.Date object representing the date of the image.
-    """
-    return ee.Date(image.get('system:time_start'))
-
-
-def get_image_timestamp(image: ee.Image) -> str:
-    """Get the timestamp of the image.
-
-    Args:
-        image: An ee.Image object representing the image.
-
-    Returns:
-        A string representing the timestamp of the image.
-    """
-    return ee.Date(image.get('system:time_start')).format().getInfo()
 
 
 def get_crs(image: ee.Image) -> str:
