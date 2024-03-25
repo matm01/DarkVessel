@@ -8,7 +8,7 @@ from google.cloud import storage
 import os
 
 
-def get_image(index: int, coordinates: tuple, dates: tuple, multiplier: int = 1):
+def get_image_via_thumbURL(index: int, coordinates: tuple, dates: tuple, multiplier: int = 1):
     """
     Function to get an image from a given point and dates, with optional multiplier for dimensions.
 
@@ -78,7 +78,7 @@ def split_image(image: np.ndarray, multiplier: int = 1) -> np.ndarray:
     return tiled_array
 
 
-def combine_predictions(tiles: list, repetitions: int) -> np.ndarray:
+def combine_predictions_from_list(tiles: list, repetitions: int) -> np.ndarray:
     """
     Combines a list of tiles into a single array by concatenating them row-wise.
 
@@ -116,10 +116,10 @@ def combine_predictions_from_array(tiles: list, n_rows: int, n_columns: int) -> 
         np.ndarray: Array containing the combined tiles.
     """
 
-    for i in range(n_rows):
+    for i in range(n_rows + 1):
         row = np.concatenate([tiles[i][0], tiles[i][1]], axis=1)
 
-        for j in range(2, n_columns):
+        for j in range(2, n_columns + 1):
             row = np.concatenate([row, tiles[i][j]], axis=1)
 
         if i == 0:
@@ -151,7 +151,7 @@ def download_all_tifs():
             blob.download_to_filename('../data/download/' + blob.name)
 
 
-def download_image(filename: str) -> io.BytesIO:
+def download_image_to_file(filename: str) -> io.BytesIO:
     """
     Downloads an image from a GC Bucket and returns it as a file-like object.
 
