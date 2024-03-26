@@ -1,11 +1,21 @@
+from collections import Counter
 import ee
-from gee import get_crs, get_crs_transform, get_image_id
 import json
+import requests
+import time
 from typing import List, Optional
+import sys
+
+# sys.append('utils')
+from gee import *  # get_crs, get_crs_transform, get_image_id
+
+
+MAX_RETRIES = 5
 
 
 def export_image_to_gcs(
         image: ee.Image,
+        # image_id: str,
         bucket_name: str,
         folder_name: str,
         filename: Optional[str] = None,
@@ -40,7 +50,7 @@ def export_image_to_gcs(
 
     task = ee.batch.Export.image.toCloudStorage(
         image=image,
-        description='SAR Sentinel-1',
+        description='Export SAR Sentinel-1',
         bucket=bucket_name,
         fileNamePrefix=filename,
         scale=resolution,  # Resolution in m per pixel. Default: 1000
@@ -54,48 +64,50 @@ def export_image_to_gcs(
     return task
 
 
-# Export status logging
+def get_task_status_with_retry(task, max_retries=MAX_RETRIES):
+    for i in range(max_retries):
+        try:
+            return task.status()
+        except requests.exceptions.ConnectionError:
+            print(f"Connection was dropped. Retry {i+1} of {max_retries}")
+            time.sleep(5)  # Wait for 5 seconds before retrying
+            continue
+    print("Failed to get the task status after several retries")
+    return None
+
+
 def get_task_status(task):
-    return task.status()
+    return get_task_status_with_retry(task)
 
 
-def log_task_status(task, log_file='../logs/task_status.json'):
-    # Check the status of the task
-    status = get_task_status(task)
-
-    # # Prepare the log entry
-    log_entry = {
-        'task_id': status['id'],
-        'status': status['state'],
-    }
-
-    # Append the log entry to the JSON file
-    with open(log_file, 'a') as file:
-        file.write(json.dumps(status))
+def get_task_id(task_status):
+    return task_status['id']
 
 
-def print_dict(d):
-    """Print formatted dictionary."""
-    for k, v in d.items():
-        print(k, ":", v)
-    print()
+def get_task_state(task_status):
+    return task_status['state']
 
 
-def halt_until_completed(task, max_time=1000):
-    """Wait until task has completed or exit if failed."""
-    failed_state = [
-        "FAILED",
-        "CANCELLED",
-        "CANCEL_REQUESTED",
-        "UNSUBMITTED",
-    ]
-    while task.status()["state"] != "COMPLETED":
-        if task.status()["state"] in failed_state:
-            break
+def get_task_status_from_id(task_id: str):
+    return ee.data.getTaskStatus(task_id)
 
 
-def check_task(task):
-    print_dict(task.status())
-    print("running task ...\n")
-    halt_until_completed(task)
-    print_dict(task.status())
+# TODO: Update status only if the task status is different from the current status
+def update_task_statuses(tasks, task_statuses):
+    for task in tasks:
+        task_status = get_task_status(task)
+        task_id = get_task_id(task_status)
+        task_state = get_task_state(task_status)
+        task_statuses[task_id] = task_state
+        # time.sleep(1)  # Wait for 1 second before checking the next task
+    return task_statuses
+
+
+def update_task_states_counts(task_statuses):
+        statuses = list(task_statuses.values())
+        counts = Counter(statuses)
+        counts_completed = counts['COMPLETED']
+        counts_failed = counts['FAILED']
+        counts_running = counts['RUNNING']
+        counts_ready = counts['READY']
+        return counts_completed, counts_failed, counts_running, counts_ready
