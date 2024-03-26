@@ -3,6 +3,10 @@ import csv
 import ee
 import pandas as pd
 from typing import Generator
+import requests
+import urllib3
+import http.client
+import time
 
 
 SENTINEL1_GRD = 'COPERNICUS/S1_GRD'
@@ -130,6 +134,22 @@ def get_list_of_images(image_list: ee.List) -> list:
     return [ee.Image(image_list.get(i)) for i in range(len_image_list(image_list))]
 
 
+def get_image_id_with_retry(image: ee.Image, max_retries: int =5):
+    for i in range(max_retries):
+        try:
+            return image.get('system:index').getInfo()
+        except (
+            requests.exceptions.ConnectionError, 
+            urllib3.exceptions.ProtocolError,
+            http.client.RemoteDisconnected,
+            ) as e:
+            print(f"Connection was dropped. Retry {i+1} of {max_retries}")
+            time.sleep(5)  # Wait for 5 seconds before retrying
+            continue
+    print("Failed to get the image id after several retries")
+    return None
+
+
 def get_image_id(image: ee.Image) -> str:
     """Get the ID of the image.
 
@@ -139,7 +159,7 @@ def get_image_id(image: ee.Image) -> str:
     Returns:
         A string representing the ID of the image.
     """
-    return image.get('system:index').getInfo()
+    return get_image_id_with_retry(image)
 
 
 def get_crs(image: ee.Image) -> str:

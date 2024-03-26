@@ -1,10 +1,12 @@
 from collections import Counter
 import ee
+import http.client
 import json
 import requests
 import time
 from typing import List, Optional
 import sys
+import urllib3
 
 # sys.append('utils')
 from gee import *  # get_crs, get_crs_transform, get_image_id
@@ -68,7 +70,11 @@ def get_task_status_with_retry(task, max_retries=MAX_RETRIES):
     for i in range(max_retries):
         try:
             return task.status()
-        except requests.exceptions.ConnectionError:
+        except (
+            requests.exceptions.ConnectionError, 
+            urllib3.exceptions.ProtocolError,
+            http.client.RemoteDisconnected,
+            ) as e:
             print(f"Connection was dropped. Retry {i+1} of {max_retries}")
             time.sleep(5)  # Wait for 5 seconds before retrying
             continue
