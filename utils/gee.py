@@ -1,4 +1,7 @@
+
+import csv
 import ee
+import pandas as pd
 from typing import Generator
 
 
@@ -115,6 +118,18 @@ def get_image_from_list(image_list: ee.List, image_index: int = 0) -> ee.Image:
     return ee.Image(image_list.get(image_index))
 
 
+def get_list_of_images(image_list: ee.List) -> list:
+    """Get a list of images from the image list.
+
+    Args:
+        image_list: An ee.List object representing the list of images.
+
+    Returns:
+        A list of ee.Image objects representing the list of images.
+    """
+    return [ee.Image(image_list.get(i)) for i in range(len_image_list(image_list))]
+
+
 def get_image_id(image: ee.Image) -> str:
     """Get the ID of the image.
 
@@ -151,3 +166,48 @@ def get_crs_transform(image: ee.Image) -> list:
     """
     projection = image.select(0).projection().getInfo()
     return projection['transform']
+
+
+def save_image_timestamps_to_csv(
+    image_list: ee.List, 
+    filename: str = 'timestamps_sar_images.csv'
+    ) -> None:
+    """
+    Save the timestamps and image IDs of a list of images to a CSV file.
+
+    Args:
+        image_list (ee.List): A list of images.
+        filename (str, optional): The name of the CSV file to save the timestamps and image IDs to. 
+            Defaults to 'timestamps_sar_images.csv'.
+    """
+    with open(filename, 'a') as f:
+        col_headers = ['TIMESTAMP', 'IMAGE_ID']
+        writer = csv.writer(f)
+        writer.writerow(col_headers)
+        new_row = []
+        # Iterate over the list to extract the IDs and Timestamps of each image
+        for i in range(image_list.size().getInfo()):
+            image = ee.Image(image_list.get(i))
+            image_id = image.get('system:index').getInfo()
+            ee_date = ee.Date(image.get('system:time_start')).format().getInfo()
+            new_row = [ee_date, image_id]
+            writer.writerow(new_row)
+            new_row = []
+            
+
+def load_image_timestamps_from_csv(
+    filename: str = 'timestamps_sar_images.csv'
+    ) -> pd.DataFrame:
+    """
+    Load image timestamps from a CSV file.
+
+    Args:
+        filename (str): The path to the CSV file containing the timestamps. Default is 'timestamps_sar_images.csv'.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the loaded timestamps.
+
+    """
+    df = pd.read_csv(filename)
+    df['TIMESTAMP'] = pd.to_datetime(df['TIMESTAMP'])
+    return df
