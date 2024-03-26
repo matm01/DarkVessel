@@ -48,7 +48,7 @@ def get_true_pixel_masked(tile_index: tuple, tile_results: object, result_index:
     return x_center, y_center
 
 
-def list_of_ships_and_coords(results: object, sar_img: object, n_columns: int, transformer: object) -> list:
+def list_of_ships_and_coords_masked(results: object, transform: object, transformer: object, list_of_idx: list) -> list:
     """
     Generate a list of ship coordinates based on the given results and SAR image.
 
@@ -69,16 +69,19 @@ def list_of_ships_and_coords(results: object, sar_img: object, n_columns: int, t
     for tile_idx, tile_results in enumerate(results):
         for detected_ship in range(len(tile_results)):
 
-            x_center, y_center = get_true_pixel(tile_idx, tile_results, n_columns, detected_ship)
-            coordinates = sar_img.transform * (x_center, y_center)
+            x_center, y_center = get_true_pixel_masked(list_of_idx[tile_idx], tile_results, detected_ship)
+            coordinates = transform * (x_center, y_center)
             converted_coordinates = transformer.transform(*coordinates)
+
             result_dict = {
                 'mmsi': f'ship_{counter}',
                 'latitude': converted_coordinates[0],
                 'longitude': converted_coordinates[1],
+                'prediction': int(tile_results.boxes.cls.cpu()[detected_ship]),
             }
             ships_and_coords.append(result_dict)
             counter += 1
+    print(f'Total number of ships found: {counter}')
     return ships_and_coords
 
 
