@@ -113,7 +113,9 @@ def list_of_ships_and_coords_masked(results: object, transform: object, transfor
                 'mmsi': f'ship_{counter}',
                 'latitude': converted_coordinates[0],
                 'longitude': converted_coordinates[1],
+                'prediction': int(tile_results.boxes.cls[0].cpu()),
             }
             ships_and_coords.append(result_dict)
             counter += 1
+    print(f'Total number of ships found: {counter}')
     return ships_and_coords
