@@ -74,7 +74,7 @@ def do_prediction(tiles_list: list, batch_size: int = BATCH_SIZE):
         )
 
     # predicting the last batch
-    if batch_size == 1:
+    if batch_size > 1:
         results.extend(model(tiles_list[(i + 1) * batch_size :], conf=CONFIDENCE_THRESHOLD, verbose=False))
 
     return results
