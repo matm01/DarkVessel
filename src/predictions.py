@@ -15,7 +15,7 @@ from google.cloud import storage
 from ultralytics import YOLO
 from rasterio.plot import show
 
-MASK_THRESHOLD = 40
+MASK_THRESHOLD = 255
 CLIP_MIN_MAX = (-30, 0)
 FROM_GC_BUCKET = True
 CONFIDENCE_THRESHOLD = 0.5
@@ -25,12 +25,11 @@ weights_path = 'runs/detect/train18/weights/best.torchscript'
 
 def get_image(filename: str, preprocess: bool = True, plot: bool = False):
     if FROM_GC_BUCKET:
-        client = storage.Client()
-        bucket = client.get_bucket(os.environ['DV_BUCKET'])
-        bucket_id = os.environ['DV_BUCKET']
+        # client = storage.Client()
+        # bucket = client.get_bucket(os.environ['DV_BUCKET'])
+        # bucket_id = os.environ['DV_BUCKET']
 
-        subprocess.run(f'gcsfuse --implicit-dirs {bucket_id} data/bucket', shell=True, executable="/bin/bash")
-        # ! gcsfuse --implicit-dirs {bucket_id} {local_path}
+        # subprocess.run(f'gcsfuse --implicit-dirs {bucket_id} data/bucket', shell=True, executable="/bin/bash")
         with rio.open('data/bucket/' + filename, 'r') as f:
             img = f.read(1)
             metadata = f.meta
@@ -43,7 +42,7 @@ def get_image(filename: str, preprocess: bool = True, plot: bool = False):
     if preprocess:
 
         # img = ipc.histogram_stretch(ipc.to_linear_magnitude(img, *CLIP_MIN_MAX), scale_factor=32)
-        # img = ipc.quarter_power_stretch(ipc.to_linear_magnitude(img, *CLIP_MIN_MAX), scale_factor=16)
+        # img = ipc.quarter_power_stretch(ipc.to_linear_magnitude(img, *CLIP_MIN_MAX), scale_factor=8)
         img = ipc.stretch_image(img, *CLIP_MIN_MAX)
         # iemg = ipc.arctangent_stretch(ipc.to_linear_magnitude(img, *CLIP_MIN_MAX), scale_factor=4000)
 
@@ -63,6 +62,7 @@ def get_tiles(img: np.ndarray) -> tuple:
 def do_prediction(tiles_list: list, batch_size: int = BATCH_SIZE):
     if batch_size > len(tiles_list):
         batch_size = len(tiles_list)
+
     model = YOLO(weights_path)
     results = model.predict(source=tiles_list, conf=CONFIDENCE_THRESHOLD, batch=batch_size, verbose=True)
 
@@ -74,7 +74,7 @@ def do_prediction(tiles_list: list, batch_size: int = BATCH_SIZE):
         )
 
     # predicting the last batch
-    if batch_size > 1:
+    if len(tiles_list) / BATCH_SIZE % 1 != 0 and len(tiles_list) > BATCH_SIZE:
         results.extend(model(tiles_list[(i + 1) * batch_size :], conf=CONFIDENCE_THRESHOLD, verbose=False))
 
     return results
@@ -88,9 +88,9 @@ def get_transformer(metadata: dict) -> pyproj.Transformer:
     return pyproj.Transformer.from_crs(source_crs, target_crs)
 
 
-def predict(filename: str):
+def predict(filename: str, plot=False):
 
-    image, metadata = get_image(filename, plot=True)
+    image, metadata = get_image(filename, plot=plot)
 
     list_of_idx, tiles_list = get_tiles(image)
 
