@@ -1,7 +1,7 @@
 import requests
 import shutil
 import ee
-import io
+
 import matplotlib.pyplot as plt
 import numpy as np
 from google.cloud import storage
@@ -149,25 +149,6 @@ def download_all_tifs():
     for blob in bucket.list_blobs():
         if blob.name.endswith('.tif') and blob.name not in dir_list:
             blob.download_to_filename('../data/download/' + blob.name)
-
-
-def download_image_to_file(filename: str) -> io.BytesIO:
-    """
-    Downloads an image from a GC Bucket and returns it as a file-like object.
-
-    Args:
-        filename (str): The name of the file to download.
-
-    Returns:
-        file_obj (io.BytesIO): A file-like object containing the downloaded image.
-    """
-    client = storage.Client()
-    bucket = client.get_bucket(os.environ['DV_BUCKET'])
-
-    file_obj = io.BytesIO()
-    img_blob = bucket.blob(filename)
-    img_blob.download_to_file(file_obj)
-    return file_obj
 
 
 def plot_tiles(tiles: list, n_rows, n_columns) -> None:
