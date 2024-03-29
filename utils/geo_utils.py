@@ -65,7 +65,7 @@ def list_of_ships_and_coords_masked(results: object, transform: object, transfor
             - 'longitude' (float): The longitude coordinate of the ship.
     """
     ships_and_coords = []
-    counter = 1
+    counter = 0
     for tile_idx, tile_results in enumerate(results):
         for detected_ship in range(len(tile_results)):
 
