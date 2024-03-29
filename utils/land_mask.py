@@ -7,8 +7,6 @@ from rasterio.mask import mask
 from rasterio.plot import show
 
 
-
-
 # Reproject the GeoDataFrame to the target CRS
 def reproject_geometry(gdf, dst_crs):
     gdf_reprojected = gdf.to_crs(dst_crs)
