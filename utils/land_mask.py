@@ -7,13 +7,7 @@ from rasterio.mask import mask
 from rasterio.plot import show
 
 
-geojson_path = ... # Path to the GeoJSON file containing the ocean mask
 
-
-with open(geojson_path, 'r') as file:
-    geojson_data = json.load(file)
-    geojson_string = json.dumps(geojson_data)  # Convert the GeoJSON data to a string
-    gdf = gpd.read_file(geojson_string)  # Read into GeoPanadas DataFrame
 
 # Reproject the GeoDataFrame to the target CRS
 def reproject_geometry(gdf, dst_crs):
@@ -23,7 +17,12 @@ def reproject_geometry(gdf, dst_crs):
 
     
 # Clip the image using the ocean mask: assign nan 
-def clip_image(image_path, gdf, output_file=None):
+def clip_image(image_path, geojson_path, output_file=None):
+    # Load the GeoJSON file
+    with open(geojson_path, 'r') as file:
+        geojson_data = json.load(file)
+        geojson_string = json.dumps(geojson_data)  # Convert the GeoJSON data to a string
+        gdf = gpd.read_file(geojson_string)  # Read into GeoPanadas DataFrame
     # Load the TIFF image
     with rasterio.open(image_path) as src:
         # Reproject the mask geometry to the target CRS
@@ -50,9 +49,10 @@ def clip_image(image_path, gdf, output_file=None):
 
 
 if __name__ == '__main__':
+    geojson_path = ... # Path to the GeoJSON file containing the ocean mask
     image_path = ...  # Path to the image to be clipped
     output_file = ...  # Path to the output file
-    clipped_image, clipped_meta = clip_image(image_path, gdf, output_file)
+    clipped_image, clipped_meta = clip_image(image_path, geojson_path, output_file)
     print(f"Clipped image saved to {output_file}")
     print(f"Clipped image metadata: {clipped_meta}")
     show(clipped_image, cmap='gray')
