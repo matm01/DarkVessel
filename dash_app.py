@@ -79,11 +79,11 @@ sidebar_content = html.Div([
 #==============================================================================
 
 map_content = html.Div([
-    dcc.DatePickerSingle(
-        id='date-picker',
-        date='2022-03-04',  # datetime.date.today()
-        display_format='YYYY-MM-DD'
-    ),
+    # dcc.DatePickerSingle(
+    #     id='date-picker',
+    #     date='2022-03-04',  # datetime.date.today()
+    #     display_format='YYYY-MM-DD'
+    # ),
     dbc.Button('Run', id='run-button', n_clicks=0),
     dcc.Graph(
         id='base-map',
@@ -101,13 +101,6 @@ map_content = html.Div([
 #==============================================================================
 
 report_content = html.Div([
-    # dash_table.DataTable(
-    #     id='click-output',
-    #     columns=[{"name": i, "id": i} for i in ["Name", "Lat", "Lon"]], 
-    #     style_cell={'textAlign': 'left'},
-    #     style_data=dict(width='150px', height='60px'),
-    #     style_table={'overflowX': 'auto'},
-    # ),
     dash_table.DataTable(
         id='click-output',
         columns=[
@@ -217,7 +210,7 @@ def display_selected_date(selected_date):
 @app.callback(
     [Output('data-table', 'data'), Output('run-button', 'children')],
     Input('run-button', 'n_clicks'),
-    State('date-picker', 'date')
+    State('date-dropdown', 'value')
 )
 def run_model(n_clicks, date):
     if n_clicks > 0:
@@ -225,17 +218,17 @@ def run_model(n_clicks, date):
         mask_date = df_timestamp['DATE'] == date
         image_list = list(df_timestamp[mask_date].index)
         
-        df_preds = pd.read_csv('data/mask_test.csv')  # FOR TESTING
+        # df_preds = pd.read_csv('data/mask_test.csv')  # FOR TESTING
         
-        # predictions = []
-        # # Run predictions on all images for the selected date
-        # for image_id in image_list:
-        #     image_file = f'{image_id}.tif'
-        #     print(f"Predictions on {image_file}")
-        #     df_preds = preds.predict(image_file, plot=False)
-        #     predictions.append(df_preds)
-        # # Concatenate predictions
-        # df_preds = pd.concat(predictions, ignore_index=True, axis=0)
+        predictions = []
+        # Run predictions on all images for the selected date
+        for image_id in image_list:
+            image_file = f'{image_id}.tif'
+            print(f"Predictions on {image_file}")
+            df_preds = preds.predict(image_file, plot=False)
+            predictions.append(df_preds)
+        # Concatenate predictions
+        df_preds = pd.concat(predictions, ignore_index=True, axis=0)
         
         df_preds.columns = ['name', 'lat', 'lon', 'prediction']
         data = df_preds.to_dict('records')
