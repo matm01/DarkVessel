@@ -1,15 +1,14 @@
 from dash import Dash, html, dcc, callback, Output, Input, State
-from dash import dash_table, no_update
+from dash import dash_table, no_update, callback_context
 import dash_bootstrap_components as dbc
 import dash_daq as daq
 from datetime import datetime
-import plotly.express as px
-import plotly.graph_objs as go
-
 import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import plotly.express as px
+import plotly.graph_objs as go
 import src.predictions_with_land_mask as preds
 
 
@@ -21,6 +20,7 @@ app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 timestamp_file = 'data/timestamps_sar_images.csv'
 df_timestamp = pd.read_csv(timestamp_file)
 df_timestamp = df_timestamp.set_index('TILE_ID')
+sar_dates = df_timestamp['DATE'].unique().tolist()
 
 # AIS data from datalastic dataset
 ais_file = 'data/ais_datalastic_filtered.csv'
@@ -41,7 +41,7 @@ longitude = 22.721728  # 22.43289
 
 
 #==============================================================================
-# Define the content and layout of the app
+# Define the content of the app
 #==============================================================================
 
 
@@ -49,6 +49,7 @@ header_content = html.Div([
     html.H1('My Dashboard', id='header'),
 ])
 
+#==============================================================================
 
 sidebar_content = html.Div([
     html.H2("Sidebar", className="display-4"),
@@ -65,8 +66,17 @@ sidebar_content = html.Div([
         vertical=True,
         pills=True,
     ),
+    dcc.Dropdown(
+        id='date-dropdown',
+        options=[{'label': date, 'value': date} for date in sar_dates],
+        value=sar_dates[0] if sar_dates else None,  # Sets the default value to the first date
+    ),
+    html.Button('Previous', id='prev-btn', n_clicks=0),
+    html.Button('Next', id='next-btn', n_clicks=0),
+    html.Div(id='selected-date-display')
 ])
 
+#==============================================================================
 
 map_content = html.Div([
     dcc.DatePickerSingle(
@@ -75,11 +85,6 @@ map_content = html.Div([
         display_format='YYYY-MM-DD'
     ),
     dbc.Button('Run', id='run-button', n_clicks=0),
-    # daq.ToggleSwitch(
-    #     id='toggle-switch',
-    #     label='Show AIS Data',
-    #     value=False
-    # ),
     dcc.Graph(
         id='base-map',
         config={'displayModeBar': False},
@@ -92,6 +97,8 @@ map_content = html.Div([
                  {'name': 'prediction', 'id': 'prediction'}],
         data=[]),
 ])
+
+#==============================================================================
 
 report_content = html.Div([
     dash_table.DataTable(
@@ -108,6 +115,12 @@ report_content = html.Div([
     ),
 ])
 
+
+#==============================================================================
+# Define the layout of the app
+#==============================================================================
+
+
 app.layout = dbc.Container(
     [
         dbc.Row(
@@ -115,15 +128,12 @@ app.layout = dbc.Container(
                 # Header
                 dbc.Col(
                     header_content,
-                    # width=2, # 2 out of 12 columns
                     style={'textAlign': 'left', "background-color": "#f8f9fa", "padding": "1rem 1rem"},
                 ),
             ],
         ),
         dbc.Row(
             [
-                # Toggle button
-                # dbc.Col(toggle_button),
                 # Left sidebar
                 dbc.Col(
                     sidebar_content,
@@ -149,6 +159,43 @@ app.layout = dbc.Container(
 )
 
 
+#==============================================================================
+# Define the app callbacks
+#==============================================================================
+
+# Callback to display the selected date
+@app.callback(
+    Output('date-dropdown', 'value'),
+    [Input('prev-btn', 'n_clicks'),
+     Input('next-btn', 'n_clicks')],
+    [State('date-dropdown', 'value')]
+)
+def update_dropdown(prev_clicks, next_clicks, current_value):
+    ctx = callback_context
+    if not ctx.triggered or not sar_dates:
+        return sar_dates[0] if sar_dates else None
+    else:
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        current_index = sar_dates.index(current_value)
+        if button_id == 'next-btn':
+            new_index = min(len(sar_dates) - 1, current_index + 1)
+        elif button_id == 'prev-btn':
+            new_index = max(0, current_index - 1)
+        else:
+            new_index = current_index
+        return sar_dates[new_index]
+
+# Callback to display the selected date
+@app.callback(
+    Output('selected-date-display', 'children'),
+    [Input('date-dropdown', 'value')]
+)
+def display_selected_date(selected_date):
+    return f'Selected Date: {selected_date}'
+
+#==============================================================================
+
+# Callback to run the model on selected date
 @app.callback(
     [Output('data-table', 'data'), Output('run-button', 'children')],
     Input('run-button', 'n_clicks'),
@@ -177,6 +224,7 @@ def run_model(n_clicks, date):
         return data, 'Done!'  
     return [], 'Run'
 
+#==============================================================================
 
 @app.callback(
     Output('base-map', 'figure'),
@@ -225,6 +273,7 @@ def update_map(n_clicks, data):
     fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
     return fig  
 
+#==============================================================================
 
 # Define a callback to update the graph when the switch is toggled
 # @app.callback(
@@ -278,6 +327,7 @@ def update_map(n_clicks, data):
 #         # Update the graph with a different set of data
 #         return current_figure
 
+#==============================================================================
 
 @app.callback(
     Output('click-output', 'data'),
