@@ -1,12 +1,14 @@
 from dash import Dash, html, dcc, callback, Output, Input, State
-from dash import dash_table, no_update
+from dash import dash_table, no_update, callback_context
 import dash_bootstrap_components as dbc
+import dash_daq as daq
 from datetime import datetime
-import plotly.express as px
 import numpy as np
 import os
 import pandas as pd
 from pathlib import Path
+import plotly.express as px
+import plotly.graph_objs as go
 import src.predictions_with_land_mask as preds
 
 
@@ -18,6 +20,7 @@ app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 timestamp_file = 'data/timestamps_sar_images.csv'
 df_timestamp = pd.read_csv(timestamp_file)
 df_timestamp = df_timestamp.set_index('TILE_ID')
+sar_dates = df_timestamp['DATE'].unique().tolist()
 
 # AIS data from datalastic dataset
 ais_file = 'data/ais_datalastic_filtered.csv'
@@ -35,32 +38,18 @@ list_of_imgs = os.listdir(local_path)
 # Base map for Laconian Bay
 latitude = 36.53353  # 36.34289 
 longitude = 22.721728  # 22.43289
-fig = px.scatter_mapbox(
-    lat=[latitude],
-    lon=[longitude],
-    zoom=10,
-    height=800,
-    mapbox_style='carto-positron',  # open-street-map
-)
-fig.update_traces(
-    marker=dict(
-        size=0, # Adjust the size as needed
-        symbol="circle", # Set symbol to 'circle'
-    ),
-    selector=dict(mode="markers"),
-)
-# fig.update_layout(mapbox_bounds={"west": 20.0, "east": 25.0, "south": 35.0, "north": 37.0})
-fig.update_layout(mapbox_bounds={"west": 22.35, "east": 23.12, "south": 36.35, "north": 36.85})
+
+
+#==============================================================================
+# Define the content of the app
+#==============================================================================
 
 
 header_content = html.Div([
     html.H1('My Dashboard', id='header'),
-    # Your existing layout...
 ])
 
-
-# # Define a button to toggle the sidebar
-# toggle_button = dbc.Button("Toggle sidebar", id="toggle-button")
+#==============================================================================
 
 sidebar_content = html.Div([
     html.H2("Sidebar", className="display-4"),
@@ -71,39 +60,64 @@ sidebar_content = html.Div([
     dbc.Nav(
         [
             dbc.NavLink("Home", href="/", active="exact"),
-            dbc.NavLink("Page 1", href="/page-1", active="exact"),
+            dbc.NavLink("About", href="/about", active="exact"),
             # dbc.NavLink("Page 2", href="/page-2", active="exact"),
         ],
         vertical=True,
         pills=True,
     ),
+    dcc.Dropdown(
+        id='date-dropdown',
+        options=[{'label': date, 'value': date} for date in sar_dates],
+        value=sar_dates[0] if sar_dates else None,  # Sets the default value to the first date
+    ),
+    html.Button('Previous', id='prev-btn', n_clicks=0),
+    html.Button('Next', id='next-btn', n_clicks=0),
+    html.Div(id='selected-date-display')
 ])
 
-# # Wrap the sidebar content in a Collapse component
-# sidebar = dbc.Collapse(sidebar_content, id="sidebar")
-
+#==============================================================================
 
 map_content = html.Div([
-    # html.H1(children='DarkVessel', style={'textAlign': 'center'}),
-    dcc.DatePickerSingle(
-        id='date-picker',
-        date='2022-03-04',  # datetime.date.today()
-        display_format='YYYY-MM-DD'
-    ),
-    dbc.Button('Run', id='predict-button', n_clicks=0),
+    # dcc.DatePickerSingle(
+    #     id='date-picker',
+    #     date='2022-03-04',  # datetime.date.today()
+    #     display_format='YYYY-MM-DD'
+    # ),
+    dbc.Button('Run', id='run-button', n_clicks=0),
     dcc.Graph(
-        figure=fig,
-        id='graph-content',
+        id='base-map',
         config={'displayModeBar': False},
         clickData=None),
+    dash_table.DataTable(
+        id='data-table',
+        columns=[{'name': 'name', 'id': 'name'},  # Change names
+                 {'name': 'lat', 'id': 'lat'},
+                 {'name': 'lon', 'id': 'lon'},
+                 {'name': 'prediction', 'id': 'prediction'}],
+        data=[]),
 ])
+
+#==============================================================================
 
 report_content = html.Div([
     dash_table.DataTable(
         id='click-output',
-        columns=[{"name": i, "id": i} for i in ["Name", "Lat", "Lon"]], 
-        style_cell={'textAlign': 'left'},
-        style_data=dict(width='150px', height='60px'),
+        columns=[
+            {"name": "Attribute", "id": "Attribute"}, 
+            {"name": "Value", "id": "Value"}
+        ],
+        style_cell_conditional=[
+            {'if': {'column_id': 'Attribute'}, 'width': '60px'},
+            {'if': {'column_id': 'Value'}, 'width': '240px'}
+        ],
+        style_cell={
+            'textAlign': 'left', 
+            'minWidth': '60px',
+            'maxWidth': '240px',
+            'whiteSpace': 'normal'
+        },
+        style_data=dict(height='20px'),
         style_table={'overflowX': 'auto'},
     ),
     html.Img(
@@ -113,6 +127,11 @@ report_content = html.Div([
     ),
 ])
 
+#==============================================================================
+# Define the layout of the app
+#==============================================================================
+
+
 app.layout = dbc.Container(
     [
         dbc.Row(
@@ -120,15 +139,12 @@ app.layout = dbc.Container(
                 # Header
                 dbc.Col(
                     header_content,
-                    # width=2, # 2 out of 12 columns
                     style={'textAlign': 'left', "background-color": "#f8f9fa", "padding": "1rem 1rem"},
                 ),
             ],
         ),
         dbc.Row(
             [
-                # Toggle button
-                # dbc.Col(toggle_button),
                 # Left sidebar
                 dbc.Col(
                     sidebar_content,
@@ -139,7 +155,7 @@ app.layout = dbc.Container(
                 dbc.Col(
                     map_content,
                     width=8, # 8 out of 12 columns
-                    style={'background-color': '#f8f9fa', "padding": "0rem 1rem", 'border-radius': '20px'},
+                    style={'background-color': '#f8f9fa', "padding": "0rem 1rem"},
                 ),
                 # Right sidebar
                 dbc.Col(
@@ -154,60 +170,82 @@ app.layout = dbc.Container(
 )
 
 
-# app.layout = html.Div([
-#     html.H1(children='DarkVessel', style={'textAlign': 'center'}),
-#     dcc.Dropdown(list_of_imgs, list_of_imgs[0], id='dropdown-selection'),
-#     dcc.DatePickerSingle(
-#         id='date-picker',
-#         date=datetime.date.today(),
-#         display_format='YYYY-MM-DD'
-#     ),
-#     dcc.Graph(figure=fig, id='graph-content'),
-# ])
+#==============================================================================
+# Define the app callbacks
+#==============================================================================
 
-
-@callback(
-    Output('graph-content', 'figure'), 
-    [Input('predict-button', 'n_clicks')],
-    [State('date-picker', 'date')]
+# Callback to display the selected date
+@app.callback(
+    Output('date-dropdown', 'value'),
+    [Input('prev-btn', 'n_clicks'),
+     Input('next-btn', 'n_clicks')],
+    [State('date-dropdown', 'value')]
 )
-def update_graph(n_clicks, date):
+def update_dropdown(prev_clicks, next_clicks, current_value):
+    ctx = callback_context
+    if not ctx.triggered or not sar_dates:
+        return sar_dates[0] if sar_dates else None
+    else:
+        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+        current_index = sar_dates.index(current_value)
+        if button_id == 'next-btn':
+            new_index = min(len(sar_dates) - 1, current_index + 1)
+        elif button_id == 'prev-btn':
+            new_index = max(0, current_index - 1)
+        else:
+            new_index = current_index
+        return sar_dates[new_index]
+
+# Callback to display the selected date
+@app.callback(
+    Output('selected-date-display', 'children'),
+    [Input('date-dropdown', 'value')]
+)
+def display_selected_date(selected_date):
+    return f'Selected Date: {selected_date}'
+
+#==============================================================================
+
+# Callback to run the model on selected date
+@app.callback(
+    [Output('data-table', 'data'), Output('run-button', 'children')],
+    Input('run-button', 'n_clicks'),
+    State('date-dropdown', 'value')
+)
+def run_model(n_clicks, date):
     if n_clicks > 0:
         # Get image ID from date picker value
         mask_date = df_timestamp['DATE'] == date
         image_list = list(df_timestamp[mask_date].index)
         
+        # df_preds = pd.read_csv('data/mask_test.csv')  # FOR TESTING
+        
         predictions = []
-        
         # Run predictions on all images for the selected date
-        # for image_id in image_list:
-        #     image_file = f'{image_id}.tif'
-        #     print(f"Predictions on {image_file}")
-        #     df_preds = preds.predict(image_file, plot=False)
-        #     predictions.append(df_preds)
-        # # Concatenate predictions
-        # df_preds = pd.concat(predictions, ignore_index=True, axis=0)
+        for image_id in image_list:
+            image_file = f'{image_id}.tif'
+            print(f"Predictions on {image_file}")
+            df_preds = preds.predict(image_file, plot=False)
+            predictions.append(df_preds)
+        # Concatenate predictions
+        df_preds = pd.concat(predictions, ignore_index=True, axis=0)
         
-        df_preds = pd.read_csv('data/mask_test.csv')  # Read predictions from file
         df_preds.columns = ['name', 'lat', 'lon', 'prediction']
-        
-        # Get timestamp for selected image
-        image_timestamp = df_timestamp.loc[image_list[0], 'TIMESTAMP']
-        
-        # Filter for date range of SAR image
-        timedelta = 45  # minutes
-        start = pd.to_datetime(image_timestamp) - pd.Timedelta(timedelta, 'min')
-        end = pd.to_datetime(image_timestamp) + pd.Timedelta(timedelta, 'min')
-        df_ais_filtered = df_ais[df_ais.timestamp.between(start, end)].copy()
+        data = df_preds.to_dict('records')
+        return data, 'Done!'  
+    return [], 'Run'
 
-        # Aggregate coordinates for each vessel
-        df_ais_agg = df_ais_filtered.groupby(['name', 'mmsi']).agg({'lat': 'mean', 'lon': 'mean'}).reset_index()
-        df_ais_agg['prediction'] = 0
-        
-        tbp = pd.concat([df_ais_agg, df_preds], axis=0, ignore_index=True)
+#==============================================================================
 
+@app.callback(
+    Output('base-map', 'figure'),
+    [Input('run-button', 'n_clicks'), Input('data-table', 'data')]
+)
+def update_map(n_clicks, data):
+    if n_clicks > 0:
+        # # Convert data to DataFrame for easier manipulation
         fig = px.scatter_mapbox(
-            tbp,
+            data,
             lat="lat",
             lon="lon",
             color="prediction",
@@ -216,46 +254,123 @@ def update_graph(n_clicks, date):
             mapbox_style="carto-positron",
             hover_data=['name', 'lat', 'lon', 'prediction']
         )
-        # fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
-        fig.update(layout_coloraxis_showscale=False)
-        # fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
-        # fig.update_layout(mapbox_bounds={"west": 20.0, "east": 25.0, "south": 35.0, "north": 37.0})
-        
-        fig.update_traces(
-            marker=dict(
-                size=15, # Adjust the size as needed
-                symbol="circle", # Set symbol to 'circle'
-            ),
-            selector=dict(mode="markers"),
+        fig.update_layout(
+            # mapbox_bounds={"west": 22.35, "east": 23.12, "south": 36.35, "north": 36.85},
+            margin={"r": 5, "t": 5, "l": 5, "b": 5}
         )
-        
+        fig.update(layout_coloraxis_showscale=False)
+        fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
         return fig
-    else:
-        # If the button has not been clicked, return the existing figure
-        return no_update
+    
+    fig = px.scatter_mapbox(
+        lat=[latitude],
+        lon=[longitude],
+        zoom=8,
+        height=700,
+        mapbox_style='carto-positron',  # open-street-map
+    )
+    fig.update_traces(
+        marker=dict(
+            size=0, # Adjust the size as needed
+            symbol="circle", # Set symbol to 'circle'
+        ),
+        selector=dict(mode="markers"),
+    )
+    fig.update_layout(
+        # mapbox_bounds={"west": 22.35, "east": 23.12, "south": 36.35, "north": 36.85},
+        margin={"r": 5, "t": 5, "l": 5, "b": 5}
+    )
+    fig.update(layout_coloraxis_showscale=False)
+    fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
+    return fig  
 
+#==============================================================================
+
+# Define a callback to update the graph when the switch is toggled
+# @app.callback(
+#     Output('base-map', 'figure'), 
+#     [Input('toggle-switch', 'on')],
+#     [State('date-picker', 'date'), State('base-map', 'figure')],
+# )
+# def update_graph(toggle_on, date, current_figure):
+#     if toggle_on:
+#         # Get image ID from date picker value
+#         mask_date = df_timestamp['DATE'] == date
+#         image_list = list(df_timestamp[mask_date].index)
+#         # Get timestamp for selected image
+#         image_timestamp = df_timestamp.loc[image_list[0], 'TIMESTAMP']
+        
+#         # Filter for date range of SAR image
+#         timedelta = 45  # minutes
+#         start = pd.to_datetime(image_timestamp) - pd.Timedelta(timedelta, 'min')
+#         end = pd.to_datetime(image_timestamp) + pd.Timedelta(timedelta, 'min')
+#         df_ais_filtered = df_ais[df_ais.timestamp.between(start, end)].copy()
+
+#         # Aggregate coordinates for each vessel
+#         df_ais_agg = df_ais_filtered.groupby(['name', 'mmsi']).agg({'lat': 'mean', 'lon': 'mean'}).reset_index()
+#         df_ais_agg['prediction'] = 0
+        
+#         fig = px.scatter_mapbox(
+#             df_ais_agg,
+#             lat="lat",
+#             lon="lon",
+#             color="prediction",
+#             zoom=8,
+#             height=700,
+#             mapbox_style="carto-positron",
+#             hover_data=['name', 'mmsi','lat', 'lon']
+#         )
+#         # fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+#         fig.update(layout_coloraxis_showscale=False)
+#         # fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
+#         # fig.update_layout(mapbox_bounds={"west": 20.0, "east": 25.0, "south": 35.0, "north": 37.0})
+        
+#         fig.update_traces(
+#             marker=dict(
+#                 size=15, # Adjust the size as needed
+#                 symbol="circle", # Set symbol to 'circle'
+#             ),
+#             selector=dict(mode="markers"),
+#         )
+#         return fig
+#     else:
+#         # The switch is in the "off" state
+#         # Update the graph with a different set of data
+#         return current_figure
+
+#==============================================================================
+
+# @app.callback(
+#     Output('click-output', 'data'),
+#     Input('base-map', 'clickData'))
+# def display_click_data(clickData):
+#     if clickData is None:
+#         return [{}]
+#     else:
+#         point_data = clickData['points'][0]
+#         return [{
+#             "Name": point_data['customdata'][0],
+#             "Lat": point_data['lat'],
+#             "Lon": point_data['lon']
+#         }]
+        
 
 @app.callback(
     Output('click-output', 'data'),
-    Input('graph-content', 'clickData'))
+    Input('base-map', 'clickData'))
 def display_click_data(clickData):
     if clickData is None:
         return [{}]
     else:
         point_data = clickData['points'][0]
-        return [{
-            "Name": point_data['customdata'][0],
-            "Lat": point_data['lat'],
-            "Lon": point_data['lon']
-        }]
+        data = [
+            {"Attribute": "Name", "Value": point_data.get('customdata', [None])[0]},
+            {"Attribute": "Lat", "Value": point_data.get('lat')},
+            {"Attribute": "Lon", "Value": point_data.get('lon')}
+        ]
+    
+    return data
 
-# Define a callback to toggle the sidebar
-# @app.callback(
-#     Output("sidebar", "is_open"),
-#     [Input("toggle-button", "n_clicks")],
-# )
-# def toggle_sidebar(n):
-#     return n and n % 2 == 1
 
 # Run the app
 if __name__ == '__main__':
