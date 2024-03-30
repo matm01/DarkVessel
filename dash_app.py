@@ -101,11 +101,30 @@ map_content = html.Div([
 #==============================================================================
 
 report_content = html.Div([
+    # dash_table.DataTable(
+    #     id='click-output',
+    #     columns=[{"name": i, "id": i} for i in ["Name", "Lat", "Lon"]], 
+    #     style_cell={'textAlign': 'left'},
+    #     style_data=dict(width='150px', height='60px'),
+    #     style_table={'overflowX': 'auto'},
+    # ),
     dash_table.DataTable(
         id='click-output',
-        columns=[{"name": i, "id": i} for i in ["Name", "Lat", "Lon"]], 
-        style_cell={'textAlign': 'left'},
-        style_data=dict(width='150px', height='60px'),
+        columns=[
+            {"name": "Attribute", "id": "Attribute"}, 
+            {"name": "Value", "id": "Value"}
+        ],
+        style_cell_conditional=[
+            {'if': {'column_id': 'Attribute'}, 'width': '60px'},
+            {'if': {'column_id': 'Value'}, 'width': '240px'}
+        ],
+        style_cell={
+            'textAlign': 'left', 
+            'minWidth': '60px',
+            'maxWidth': '240px',
+            'whiteSpace': 'normal'
+        },
+        style_data=dict(height='20px'),
         style_table={'overflowX': 'auto'},
     ),
     html.Img(
@@ -114,7 +133,6 @@ report_content = html.Div([
         alt='Image will be displayed here'
     ),
 ])
-
 
 #==============================================================================
 # Define the layout of the app
@@ -207,7 +225,7 @@ def run_model(n_clicks, date):
         mask_date = df_timestamp['DATE'] == date
         image_list = list(df_timestamp[mask_date].index)
         
-        df_preds = pd.read_csv('data/mask_test.csv')  # FOR TESTING Read predictions from file
+        df_preds = pd.read_csv('data/mask_test.csv')  # FOR TESTING
         
         # predictions = []
         # # Run predictions on all images for the selected date
@@ -329,6 +347,21 @@ def update_map(n_clicks, data):
 
 #==============================================================================
 
+# @app.callback(
+#     Output('click-output', 'data'),
+#     Input('base-map', 'clickData'))
+# def display_click_data(clickData):
+#     if clickData is None:
+#         return [{}]
+#     else:
+#         point_data = clickData['points'][0]
+#         return [{
+#             "Name": point_data['customdata'][0],
+#             "Lat": point_data['lat'],
+#             "Lon": point_data['lon']
+#         }]
+        
+
 @app.callback(
     Output('click-output', 'data'),
     Input('base-map', 'clickData'))
@@ -337,11 +370,13 @@ def display_click_data(clickData):
         return [{}]
     else:
         point_data = clickData['points'][0]
-        return [{
-            "Name": point_data['customdata'][0],
-            "Lat": point_data['lat'],
-            "Lon": point_data['lon']
-        }]
+        data = [
+            {"Attribute": "Name", "Value": point_data.get('customdata', [None])[0]},
+            {"Attribute": "Lat", "Value": point_data.get('lat')},
+            {"Attribute": "Lon", "Value": point_data.get('lon')}
+        ]
+    
+    return data
 
 
 # Run the app
