@@ -43,7 +43,7 @@ def stretch_image(db_img: np.ndarray, min: int = -30, max: int = 0) -> np.ndarra
     """
     cliped_image = np.clip(db_img, min, max)
     scaled_image = (cliped_image - min) * 255 / (max - min)
-    scaled_image = np.nan_to_num(scaled_image, nan=255.0)
+    scaled_image = np.nan_to_num(scaled_image, nan=0.0)
     return (scaled_image).astype('uint8')
 
 
@@ -62,11 +62,11 @@ def split_image(image: np.ndarray) -> np.ndarray:
     x_fill, y_fill = 640 - (width % 640), 640 - (height % 640)
 
     rows = np.ndarray([y_fill, image.shape[1]], dtype=np.uint8)
-    rows.fill(255)
+    rows.fill(0)
     image = np.vstack([image, rows])
 
     cols = np.ndarray([image.shape[0], x_fill], dtype=np.uint8)
-    cols.fill(255)
+    cols.fill(0)
     image = np.hstack([image, cols])
 
     num_x_tiles, num_y_tiles = int(image.shape[0] / 640), int(image.shape[1] / 640)

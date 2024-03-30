@@ -189,7 +189,7 @@ def remove_land_tiles(tiles, threshold):
     n_rows, n_columns = tiles.shape[:2]
     for i in range(n_rows):
         for j in range(n_columns):
-            if tiles[i][j].mean() < threshold:
+            if tiles[i][j].mean() > threshold:
                 list_of_tiles.append(np.dstack([tiles[i][j], tiles[i][j], tiles[i][j]]))
                 list_of_idx.append((i, j))
     print(f'The list contains {len(list_of_idx)} tiles.')
