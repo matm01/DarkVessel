@@ -4,13 +4,17 @@ import pyproj
 import os
 import subprocess
 import pandas as pd
+from pathlib import Path
 import rasterio as rio
-import utils.geo_utils as geos
-import utils.image_processing as ipc
-import utils.utils as utils
-import utils.land_mask as lmsk
-
 import sys
+
+sys.path.append('utils')
+
+import geo_utils as geos
+import image_processing as ipc
+from utils import utils
+import land_mask as lmsk
+
 
 from google.cloud import storage
 from ultralytics import YOLO
@@ -20,38 +24,16 @@ MASK_THRESHOLD = 255
 CLIP_MIN_MAX = (-30, 0)
 FROM_GC_BUCKET = True
 CONFIDENCE_THRESHOLD = 0.5
-BATCH_SIZE = 64
-weights_path = 'runs/detect/train18_with_sts/weights/best.torchscript'
+BATCH_SIZE = 16
 
+yolo_weights = 'runs/detect/best.torchscript'
+# yolo_weights = 'runs/detect/train18_with_sts/weights/best.torchscript'
 
-def get_image(filename: str, preprocess: bool = True, plot: bool = False):
-    if FROM_GC_BUCKET:
-        # client = storage.Client()
-        # bucket = client.get_bucket(os.environ['DV_BUCKET'])
-        # bucket_id = os.environ['DV_BUCKET']
+ocean_mask = 'data/mask_laconian_bay.geojson'
 
-        # subprocess.run(f'gcsfuse --implicit-dirs {bucket_id} data/bucket', shell=True, executable="/bin/bash")
-        with rio.open('data/bucket/' + filename, 'r') as f:
-            img = f.read(1)
-            metadata = f.meta
-        print('download complete')
-
-    else:
-        with rio.open('data/download/' + filename, 'r') as f:
-            img = f.read(1)
-            metadata = f.meta
-    if preprocess:
-
-        # img = ipc.histogram_stretch(ipc.to_linear_magnitude(img, *CLIP_MIN_MAX), scale_factor=32)
-        # img = ipc.quarter_power_stretch(ipc.to_linear_magnitude(img, *CLIP_MIN_MAX), scale_factor=8)
-        img = ipc.stretch_image(img, *CLIP_MIN_MAX)
-        # iemg = ipc.arctangent_stretch(ipc.to_linear_magnitude(img, *CLIP_MIN_MAX), scale_factor=4000)
-
-    if plot:
-
-        ipc.plot_img_and_hist(img)
-
-    return img, metadata
+bucket_id = os.environ.get('SAR_BUCKET')
+local_path = f'data/{bucket_id}/VH'
+# local_path = 'data/bucket/VH'
 
 
 def process_image(img: np.ndarray) -> np.ndarray:
@@ -60,53 +42,55 @@ def process_image(img: np.ndarray) -> np.ndarray:
 
 def get_tiles(img: np.ndarray) -> tuple:
     tiles = ipc.split_image(img)
-
     return utils.remove_land_tiles(tiles, MASK_THRESHOLD)
 
 
 def do_prediction(tiles_list: list, batch_size: int = BATCH_SIZE):
-    if batch_size > len(tiles_list):
-        batch_size = len(tiles_list)
-
-    model = YOLO(weights_path)
-    results = model.predict(source=tiles_list, conf=CONFIDENCE_THRESHOLD, batch=batch_size, verbose=True)
-
-    # batching the tiles_list and do the training
+    model = YOLO(yolo_weights)
+    tiles_list_size = len(tiles_list)
     results = []
-    for i in range(len(tiles_list) // batch_size):
-        results.extend(
-            model(tiles_list[i * batch_size : (i + 1) * batch_size], conf=CONFIDENCE_THRESHOLD, verbose=False)
-        )
-
-    # predicting the last batch
-    if len(tiles_list) / BATCH_SIZE % 1 != 0 and len(tiles_list) > BATCH_SIZE:
-        results.extend(model(tiles_list[(i + 1) * batch_size :], conf=CONFIDENCE_THRESHOLD, verbose=False))
+    
+    if tiles_list_size < batch_size:
+        results = model(tiles_list, conf=CONFIDENCE_THRESHOLD, verbose=False)
+    else:
+        for i in range(len(tiles_list) // batch_size):
+            batch_results =model(tiles_list[i * batch_size : (i + 1) * batch_size], 
+                                conf=CONFIDENCE_THRESHOLD,
+                                verbose=False)
+            results.extend(batch_results)
+        # Predicting the last batch
+        if len(tiles_list) / BATCH_SIZE % 1 != 0 and len(tiles_list) > BATCH_SIZE:
+            results.extend(model(tiles_list[(i + 1) * batch_size: ], 
+                                conf=CONFIDENCE_THRESHOLD, verbose=False))
 
     return results
 
 
 def get_transformer(metadata: dict) -> pyproj.Transformer:
     source_crs = pyproj.CRS(metadata['crs'])
-    target_crs = pyproj.CRS("EPSG:4326")
-
-    # Create a transformer object
+    target_crs = pyproj.CRS("EPSG:4326")  # Latitude, Longitude coordinates
     return pyproj.Transformer.from_crs(source_crs, target_crs)
 
 
-def predict(filename: str, weights_path: str = weights_path, plot=False):
+def predict(filename: str, weights_path: str = yolo_weights, plot=False):
 
-    image, metadata = lmsk.clip_image('data/bucket/VH/' + filename)
+    print("Applying land mask to image")
+    image, metadata = lmsk.clip_image(f'{local_path}/{filename}', ocean_mask)
+    print("Pre-processing SAR image")
     image = process_image(image)
 
     if plot:
-
         ipc.plot_img_and_hist(image)
-
+    print("Spliting image into tiles")
     list_of_idx, tiles_list = get_tiles(image)
-
+    print("Predicting ships and STS-transfers in tiles")
     results = do_prediction(tiles_list)
+    print("Getting detected ships coordinates in latitude and longitude")
     transformer = get_transformer(metadata)
-    ships_and_coords = geos.list_of_ships_and_coords_masked(results, metadata['transform'], transformer, list_of_idx)
+    ships_and_coords = geos.list_of_ships_and_coords_masked(results, 
+                                                            metadata['transform'],
+                                                            transformer,
+                                                            list_of_idx)
 
     csv_name = filename.split('/')[-1].split('.')[0]
     pred_df = pd.DataFrame(ships_and_coords)
@@ -115,5 +99,6 @@ def predict(filename: str, weights_path: str = weights_path, plot=False):
 
 
 if __name__ == '__main__':
-    filename = sys.argv[1]
+    # filename = sys.argv[1]
+    filename = 'S1A_IW_GRDH_1SDV_20220304T162332_20220304T162357_042174_05068B_5B73.tif'
     predict(filename)
