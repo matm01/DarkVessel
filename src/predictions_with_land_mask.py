@@ -2,25 +2,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
 import os
-import subprocess
 import pandas as pd
 from pathlib import Path
 import rasterio as rio
-import sys
 
-sys.path.append('utils')
-
-import geo_utils as geos
-import image_processing as ipc
-from utils import utils
-import land_mask as lmsk
+import utils.geo_utils as geos
+import utils.image_processing as ipc
+import utils.utils as utils
+import utils.land_mask as lmsk
 
 
 from google.cloud import storage
 from ultralytics import YOLO
 from rasterio.plot import show
 
-MASK_THRESHOLD = 255
+MASK_THRESHOLD = 3
 CLIP_MIN_MAX = (-30, 0)
 FROM_GC_BUCKET = True
 CONFIDENCE_THRESHOLD = 0.5
@@ -49,19 +45,18 @@ def do_prediction(tiles_list: list, batch_size: int = BATCH_SIZE):
     model = YOLO(yolo_weights)
     tiles_list_size = len(tiles_list)
     results = []
-    
+
     if tiles_list_size < batch_size:
         results = model(tiles_list, conf=CONFIDENCE_THRESHOLD, verbose=False)
     else:
         for i in range(len(tiles_list) // batch_size):
-            batch_results =model(tiles_list[i * batch_size : (i + 1) * batch_size], 
-                                conf=CONFIDENCE_THRESHOLD,
-                                verbose=False)
+            batch_results = model(
+                tiles_list[i * batch_size : (i + 1) * batch_size], conf=CONFIDENCE_THRESHOLD, verbose=False
+            )
             results.extend(batch_results)
         # Predicting the last batch
-        if len(tiles_list) / BATCH_SIZE % 1 != 0 and len(tiles_list) > BATCH_SIZE:
-            results.extend(model(tiles_list[(i + 1) * batch_size: ], 
-                                conf=CONFIDENCE_THRESHOLD, verbose=False))
+        if len(tiles_list) % BATCH_SIZE != 0:
+            results.extend(model(tiles_list[(i + 1) * batch_size :], conf=CONFIDENCE_THRESHOLD, verbose=False))
 
     return results
 
@@ -70,6 +65,14 @@ def get_transformer(metadata: dict) -> pyproj.Transformer:
     source_crs = pyproj.CRS(metadata['crs'])
     target_crs = pyproj.CRS("EPSG:4326")  # Latitude, Longitude coordinates
     return pyproj.Transformer.from_crs(source_crs, target_crs)
+
+
+def save_image(list_ship_positions, image):
+    for idx, position in enumerate(list_ship_positions):
+        img = image[position[1] - 75 : position[1] + 75, position[0] - 75 : position[0] + 75]
+        print(img)
+        print(position)
+        plt.imsave(f'data/temp/ship_{idx}.jpg', np.dstack((img, img, img)))
 
 
 def predict(filename: str, weights_path: str = yolo_weights, plot=False):
@@ -87,10 +90,11 @@ def predict(filename: str, weights_path: str = yolo_weights, plot=False):
     results = do_prediction(tiles_list)
     print("Getting detected ships coordinates in latitude and longitude")
     transformer = get_transformer(metadata)
-    ships_and_coords = geos.list_of_ships_and_coords_masked(results, 
-                                                            metadata['transform'],
-                                                            transformer,
-                                                            list_of_idx)
+    ships_and_coords, list_ship_positions = geos.list_of_ships_and_coords_masked(
+        results, metadata['transform'], transformer, list_of_idx
+    )
+
+    save_image(list_ship_positions, image)
 
     csv_name = filename.split('/')[-1].split('.')[0]
     pred_df = pd.DataFrame(ships_and_coords)

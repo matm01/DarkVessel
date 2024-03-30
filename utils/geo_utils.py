@@ -1,9 +1,4 @@
-
-def get_true_pixel_masked(
-        tile_index: tuple, 
-        tile_results: object, 
-        result_index: int
-    ) -> tuple:
+def get_true_pixel_masked(tile_index: tuple, tile_results: object, result_index: int) -> tuple:
     """
     Calculate the true pixel coordinates of the center of a tile's bounding box
     in the entire image.
@@ -27,12 +22,7 @@ def get_true_pixel_masked(
     return x_center, y_center
 
 
-def list_of_ships_and_coords_masked(
-        results: object, 
-        transform: object, 
-        transformer: object, 
-        list_of_idx: list
-    ) -> list:
+def list_of_ships_and_coords_masked(results: object, transform: object, transformer: object, list_of_idx: list) -> list:
     """
     Generate a list of ship coordinates based on the given results and SAR image.
 
@@ -43,20 +33,19 @@ def list_of_ships_and_coords_masked(
         transformer (object): The transformer object for coordinate conversion.
 
     Returns:
-        list: A list of dictionaries containing ship coordinates. 
+        list: A list of dictionaries containing ship coordinates.
         Each dictionary has the following keys:
             - 'mmsi' (str): The ship identifier.
             - 'latitude' (float): The latitude coordinate of the ship.
             - 'longitude' (float): The longitude coordinate of the ship.
     """
     ships_and_coords = []
+    list_ship_positions = []
     counter = 0
-    
+
     for tile_idx, tile_results in enumerate(results):
         for detected_ship in range(len(tile_results)):
-            x_center, y_center = get_true_pixel_masked(list_of_idx[tile_idx], 
-                                                       tile_results, 
-                                                       detected_ship)
+            x_center, y_center = get_true_pixel_masked(list_of_idx[tile_idx], tile_results, detected_ship)
             coordinates = transform * (x_center, y_center)
             converted_coordinates = transformer.transform(*coordinates)
             result_dict = {
@@ -66,9 +55,10 @@ def list_of_ships_and_coords_masked(
                 'prediction': int(tile_results.boxes.cls[0].cpu()),
             }
             ships_and_coords.append(result_dict)
+            list_ship_positions.append((x_center, y_center))
             counter += 1
     print(f'Total number of ships found: {counter}')
-    return ships_and_coords
+    return ships_and_coords, list_ship_positions
 
 
 # def get_true_pixel(tile_index: int, tile_results: object, num_cols: int, result_index: int) -> tuple:
