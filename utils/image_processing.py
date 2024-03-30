@@ -47,16 +47,15 @@ def stretch_image(db_img: np.ndarray, min: int = -30, max: int = 0) -> np.ndarra
     return (scaled_image).astype('uint8')
 
 
-def split_image(image: np.ndarray) -> np.ndarray:
+def resize_image(image: np.ndarray) -> np.ndarray:
     """
-    add rows and collumns to the array and splits an image into a
-    tiled array based on its dimensions.
+    Resizes an image to a multiple of 640 pixels in both dimensions.
 
     Parameters:
-        image (numpy.ndarray): The input image to be split.
+        image (np.ndarray): The input image to be resized.
 
     Returns:
-        numpy.ndarray: The tiled array representing the split image.
+        np.ndarray: The resized image with dimensions that are a multiple of 640 pixels.
     """
     height, width = image.shape
     x_fill, y_fill = 640 - (width % 640), 640 - (height % 640)
@@ -69,6 +68,19 @@ def split_image(image: np.ndarray) -> np.ndarray:
     cols.fill(0)
     image = np.hstack([image, cols])
 
+    return image
+
+
+def split_image(image: np.ndarray) -> np.ndarray:
+    """
+    Splits an image into a tiled array based on its dimensions.
+
+    Parameters:
+        image (numpy.ndarray): The input image to be split.
+
+    Returns:
+        numpy.ndarray: The tiled array representing the split image.
+    """
     num_x_tiles, num_y_tiles = int(image.shape[0] / 640), int(image.shape[1] / 640)
 
     tiled_array = image.reshape(num_x_tiles, 640, num_y_tiles, 640)

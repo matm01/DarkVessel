@@ -70,8 +70,6 @@ def get_transformer(metadata: dict) -> pyproj.Transformer:
 def save_image(list_ship_positions, image):
     for idx, position in enumerate(list_ship_positions):
         img = image[position[1] - 75 : position[1] + 75, position[0] - 75 : position[0] + 75]
-        print(img)
-        print(position)
         plt.imsave(f'data/temp/ship_{idx}.jpg', np.dstack((img, img, img)))
 
 
@@ -81,6 +79,7 @@ def predict(filename: str, weights_path: str = yolo_weights, plot=False):
     image, metadata = lmsk.clip_image(f'{local_path}/{filename}', ocean_mask)
     print("Pre-processing SAR image")
     image = process_image(image)
+    image = ipc.resize_image(image)
 
     if plot:
         ipc.plot_img_and_hist(image)
