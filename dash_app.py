@@ -15,8 +15,8 @@ import src.predictions_with_land_mask as preds
 
 
 # Initialize the app
-app = Dash(__name__, external_stylesheets=[dbc.themes.MORPH])
-load_figure_template('MORPH')
+app = Dash(__name__, external_stylesheets=[dbc.themes.SPACELAB])
+load_figure_template('SPACELAB')
 
 # Timestamps for existing SAR images
 timestamp_file = 'data/timestamps_sar_images.csv'
@@ -73,8 +73,8 @@ sidebar_content = html.Div([
         options=[{'label': date, 'value': date} for date in sar_dates],
         value=sar_dates[0] if sar_dates else None,  # Sets the default value to the first date
     ),
-    html.Button('Previous', id='prev-btn', n_clicks=0),
-    html.Button('Next', id='next-btn', n_clicks=0),
+    dbc.Button('Previous', id='prev-btn', n_clicks=0),
+    dbc.Button('Next', id='next-btn', n_clicks=0),
     html.Div(id='selected-date-display')
 ])
 
@@ -88,10 +88,12 @@ map_content = html.Div([
         clickData=None),
     dash_table.DataTable(
         id='data-table',
-        columns=[{'name': 'name', 'id': 'name'},  # Change names
-                 {'name': 'lat', 'id': 'lat'},
-                 {'name': 'lon', 'id': 'lon'},
-                 {'name': 'prediction', 'id': 'prediction'}],
+        columns=[
+            {'name': 'Name', 'id': 'name'},
+            {'name': 'Latitude', 'id': 'lat'},
+            {'name': 'Longitude', 'id': 'lon'},
+            {'name': 'Prediction', 'id': 'prediction'}
+        ],
         data=[]),
 ])
 
@@ -119,8 +121,8 @@ report_content = html.Div([
     ),
     html.Img(
         id='image-placeholder', 
-        src=None, 
-        alt='Image will be displayed here'
+        # src='data/results/S1A_IW_GRDH_1SDV_20230215T162338_20230215T162403_047249_05AB7F_600C/ship_2.png', 
+        alt='Image will be displayed here',
     ),
 ])
 
@@ -146,19 +148,19 @@ app.layout = dbc.Container(
                 dbc.Col(
                     sidebar_content,
                     width=2, # 2 out of 12 columns
-                    style={"background-color": "#f8f9fa", "padding": "0rem 1rem"},
+                    style={"background-color": "#f8f9fa", "padding": "1rem 1rem"},
                 ),
                 # Map
                 dbc.Col(
                     map_content,
                     width=8, # 8 out of 12 columns
-                    style={'background-color': '#f8f9fa', "padding": "0rem 1rem"},
+                    style={'background-color': '#f8f9fa', "padding": "1rem 1rem"},
                 ),
                 # Right sidebar
                 dbc.Col(
                     report_content,
                     width=2, # 2 out of 12 columns
-                    style={"background-color": "#f8f9fa", "padding": "0rem 1rem"},
+                    style={"background-color": "#f8f9fa", "padding": "1rem 0rem"},
                 ),
             ],
         )
@@ -215,17 +217,17 @@ def run_model(n_clicks, date):
         mask_date = df_timestamp['DATE'] == date
         image_list = list(df_timestamp[mask_date].index)
         
-        # df_preds = pd.read_csv('data/mask_test.csv')  # FOR TESTING
+        df_preds = pd.read_csv('results/S1A_IW_GRDH_1SDV_20220201T163119_20220201T163144_041722_04F6E6_38F5.csv')  # FOR TESTING
         
-        predictions = []
-        # Run predictions on all images for the selected date
-        for image_id in image_list:
-            image_file = f'{image_id}.tif'
-            print(f"Predictions on {image_file}")
-            df_preds = preds.predict(image_file, plot=False)
-            predictions.append(df_preds)
-        # Concatenate predictions
-        df_preds = pd.concat(predictions, ignore_index=True, axis=0)
+        # predictions = []
+        # # Run predictions on all images for the selected date
+        # for image_id in image_list:
+        #     image_file = f'{image_id}.tif'
+        #     print(f"Predictions on {image_file}")
+        #     df_preds = preds.predict(image_file, plot=False)
+        #     predictions.append(df_preds)
+        # # Concatenate predictions
+        # df_preds = pd.concat(predictions, ignore_index=True, axis=0)
         
         df_preds.columns = ['name', 'lat', 'lon', 'prediction', 'image']
         data = df_preds.to_dict('records')
@@ -249,7 +251,7 @@ def update_map(n_clicks, data):
             zoom=9,
             height=700,
             mapbox_style="carto-positron",
-            hover_data=['name', 'lat', 'lon', 'prediction']
+            hover_data=['name', 'lat', 'lon', 'prediction', 'image']
         )
         fig.update_layout(
             # mapbox_bounds={"west": 22.35, "east": 23.12, "south": 36.35, "north": 36.85},
@@ -354,22 +356,34 @@ def update_map(n_clicks, data):
 
 @app.callback(
     Output('click-output-data', 'data'),
-    #  Output('image-placeholder', 'src')],
     Input('base-map', 'clickData'))
-def display_click_data(clickData):
+def display_click_data_table(clickData):
     if clickData is None:
         return [{}]
     else:
         point_data = clickData['points'][0]
         data = [
+            # {"Attribute": "Name", "Value": point_data.get('name')},
             {"Attribute": "Name", "Value": point_data.get('customdata', [None])[0]},
             {"Attribute": "Lat", "Value": point_data.get('lat')},
             {"Attribute": "Lon", "Value": point_data.get('lon')},
-            {"Attribute": "Image", "Value": point_data.get('image')}
+            {"Attribute": "Prediction", "Value": point_data.get('prediction')},
+            # {"Attribute": "Name", "Value": point_data.get('customdata', [None])[4]},
+            # {"Attribute": "Image", "Value": point_data.get('image')}
         ]
-        image = [
-        ]
-    return data  #, image
+    return data
+
+
+@app.callback(
+    Output('image-placeholder', 'src'),
+    Input('base-map', 'clickData'))
+def display_click_data_image(clickData):
+    if clickData is None:
+        return ''
+    else:
+        point_data = clickData['points'][0]
+        image = point_data.get('customdata', 'no image')[4]  # local path to image
+        return image
 
 
 # Run the app
