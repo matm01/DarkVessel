@@ -207,7 +207,8 @@ def display_selected_date(selected_date):
 
 # Callback to run the model on selected date
 @app.callback(
-    [Output('data-table', 'data'), Output('run-button', 'children')],
+    # [Output('data-table', 'data'), Output('run-button', 'children')],
+    Output('data-table', 'data'),
     Input('run-button', 'n_clicks'),
     State('date-dropdown', 'value')
 )
@@ -217,22 +218,22 @@ def run_model(n_clicks, date):
         mask_date = df_timestamp['DATE'] == date
         image_list = list(df_timestamp[mask_date].index)
         
-        df_preds = pd.read_csv('results/S1A_IW_GRDH_1SDV_20220201T163119_20220201T163144_041722_04F6E6_38F5.csv')  # FOR TESTING
+        # df_preds = pd.read_csv('results/S1A_IW_GRDH_1SDV_20220201T163119_20220201T163144_041722_04F6E6_38F5.csv')  # FOR TESTING
         
-        # predictions = []
-        # # Run predictions on all images for the selected date
-        # for image_id in image_list:
-        #     image_file = f'{image_id}.tif'
-        #     print(f"Predictions on {image_file}")
-        #     df_preds = preds.predict(image_file, plot=False)
-        #     predictions.append(df_preds)
-        # # Concatenate predictions
-        # df_preds = pd.concat(predictions, ignore_index=True, axis=0)
+        predictions = []
+        # Run predictions on all images for the selected date
+        for image_id in image_list:
+            image_file = f'{image_id}.tif'
+            print(f"Predictions on {image_file}")
+            df_preds = preds.predict(image_file, plot=False)
+            predictions.append(df_preds)
+        # Concatenate predictions
+        df_preds = pd.concat(predictions, ignore_index=True, axis=0)
         
         df_preds.columns = ['name', 'lat', 'lon', 'prediction', 'image']
         data = df_preds.to_dict('records')
-        return data, 'Done!'  
-    return [], 'Run'
+        return data
+    return []
 
 #==============================================================================
 
