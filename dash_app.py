@@ -79,11 +79,6 @@ sidebar_content = html.Div([
 #==============================================================================
 
 map_content = html.Div([
-    # dcc.DatePickerSingle(
-    #     id='date-picker',
-    #     date='2022-03-04',  # datetime.date.today()
-    #     display_format='YYYY-MM-DD'
-    # ),
     dbc.Button('Run', id='run-button', n_clicks=0),
     dcc.Graph(
         id='base-map',
@@ -368,7 +363,6 @@ def display_click_data(clickData):
             {"Attribute": "Lat", "Value": point_data.get('lat')},
             {"Attribute": "Lon", "Value": point_data.get('lon')}
         ]
-    
     return data
 
 
