@@ -75,31 +75,33 @@ def save_image(list_ship_positions, image, filename, width=290, height=290):
     # if not os.path.exists(image_folder_path):
     #     os.makedirs(image_folder_path)
     for idx, position in enumerate(list_ship_positions):
-        img = image[position[1]-width//2: position[1]+width//2,
-                    position[0]-height//2: position[0]+height//2]
+        img = image[
+            position[1] - width // 2 : position[1] + width // 2, position[0] - height // 2 : position[0] + height // 2
+        ]
         image_path = f'assets/{image_id}_ship_{idx}.png'
         plt.imsave(image_path, np.dstack((img, img, img)))
         images.append(image_path)
     return images
 
+
 def predict(filename: str, plot=False):
 
     print("Applying land mask to image")
     image, metadata = lmsk.clip_image(f'{local_path}/{filename}', ocean_mask)
-   
+
     print("Pre-processing SAR image")
     image = process_image(image)
     image = ipc.resize_image(image)
 
     if plot:
         ipc.plot_img_and_hist(image)
-    
+
     print("Spliting image into tiles")
     list_of_idx, tiles_list = get_tiles(image)
-    
+
     print("Predicting ships and STS-transfers in tiles")
     results = do_prediction(tiles_list)
-    
+
     print("Getting detected ships coordinates in latitude and longitude")
     transformer = get_transformer(metadata)
     ships_and_coords, list_ship_positions = geos.list_of_ships_and_coords_masked(
