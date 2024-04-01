@@ -67,13 +67,17 @@ def get_transformer(metadata: dict) -> pyproj.Transformer:
     return pyproj.Transformer.from_crs(source_crs, target_crs)
 
 
-def save_image(list_ship_positions, image):
+def save_image(list_ship_positions, image, width=150, height=150):
+    images = []
     for idx, position in enumerate(list_ship_positions):
-        img = image[position[1] - 75 : position[1] + 75, position[0] - 75 : position[0] + 75]
-        plt.imsave(f'data/temp/ship_{idx}.jpg', np.dstack((img, img, img)))
+        img = image[position[1]-width//2: position[1]+width//2,
+                    position[0]-height//2: position[0]+height//2]
+        image_path = f'data/temp/ship_{idx}.jpg'
+        plt.imsave(image_path, np.dstack((img, img, img)))
+        images.append(image_path)
+    return images
 
-
-def predict(filename: str, weights_path: str = yolo_weights, plot=False):
+def predict(filename: str, plot=False, results_path='data/results.csv'):
 
     print("Applying land mask to image")
     image, metadata = lmsk.clip_image(f'{local_path}/{filename}', ocean_mask)
@@ -93,11 +97,12 @@ def predict(filename: str, weights_path: str = yolo_weights, plot=False):
         results, metadata['transform'], transformer, list_of_idx
     )
 
-    save_image(list_ship_positions, image)
+    images = save_image(list_ship_positions, image)
 
     csv_name = filename.split('/')[-1].split('.')[0]
     pred_df = pd.DataFrame(ships_and_coords)
-    pred_df.to_csv(f'data/mask_test.csv', index=False)
+    pred_df.to_csv(results_path, index=False)
+    pred_df['image'] = images
     return pred_df
 
 

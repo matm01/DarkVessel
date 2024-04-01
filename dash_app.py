@@ -1,6 +1,7 @@
 from dash import Dash, html, dcc, callback, Output, Input, State
 from dash import dash_table, no_update, callback_context
 import dash_bootstrap_components as dbc
+from dash_bootstrap_templates import load_figure_template
 import dash_daq as daq
 from datetime import datetime
 import numpy as np
@@ -14,7 +15,8 @@ import src.predictions_with_land_mask as preds
 
 
 # Initialize the app
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = Dash(__name__, external_stylesheets=[dbc.themes.MORPH])
+load_figure_template('MORPH')
 
 # Timestamps for existing SAR images
 timestamp_file = 'data/timestamps_sar_images.csv'
@@ -97,7 +99,7 @@ map_content = html.Div([
 
 report_content = html.Div([
     dash_table.DataTable(
-        id='click-output',
+        id='click-output-data',
         columns=[
             {"name": "Attribute", "id": "Attribute"}, 
             {"name": "Value", "id": "Value"}
@@ -117,7 +119,7 @@ report_content = html.Div([
     ),
     html.Img(
         id='image-placeholder', 
-        src='https://www.naturalgasworld.com/content/84617/STS%20operation%20at%20Subic%20Bay_f175x175.jpg', 
+        src=None, 
         alt='Image will be displayed here'
     ),
 ])
@@ -169,7 +171,7 @@ app.layout = dbc.Container(
 # Define the app callbacks
 #==============================================================================
 
-# Callback to display the selected date
+# Callback to update dates
 @app.callback(
     Output('date-dropdown', 'value'),
     [Input('prev-btn', 'n_clicks'),
@@ -225,7 +227,7 @@ def run_model(n_clicks, date):
         # Concatenate predictions
         df_preds = pd.concat(predictions, ignore_index=True, axis=0)
         
-        df_preds.columns = ['name', 'lat', 'lon', 'prediction']
+        df_preds.columns = ['name', 'lat', 'lon', 'prediction', 'image']
         data = df_preds.to_dict('records')
         return data, 'Done!'  
     return [], 'Run'
@@ -244,7 +246,7 @@ def update_map(n_clicks, data):
             lat="lat",
             lon="lon",
             color="prediction",
-            zoom=8,
+            zoom=9,
             height=700,
             mapbox_style="carto-positron",
             hover_data=['name', 'lat', 'lon', 'prediction']
@@ -260,7 +262,7 @@ def update_map(n_clicks, data):
     fig = px.scatter_mapbox(
         lat=[latitude],
         lon=[longitude],
-        zoom=8,
+        zoom=9,
         height=700,
         mapbox_style='carto-positron',  # open-street-map
     )
@@ -351,7 +353,8 @@ def update_map(n_clicks, data):
         
 
 @app.callback(
-    Output('click-output', 'data'),
+    Output('click-output-data', 'data'),
+    #  Output('image-placeholder', 'src')],
     Input('base-map', 'clickData'))
 def display_click_data(clickData):
     if clickData is None:
@@ -361,9 +364,12 @@ def display_click_data(clickData):
         data = [
             {"Attribute": "Name", "Value": point_data.get('customdata', [None])[0]},
             {"Attribute": "Lat", "Value": point_data.get('lat')},
-            {"Attribute": "Lon", "Value": point_data.get('lon')}
+            {"Attribute": "Lon", "Value": point_data.get('lon')},
+            {"Attribute": "Image", "Value": point_data.get('image')}
         ]
-    return data
+        image = [
+        ]
+    return data  #, image
 
 
 # Run the app
