@@ -143,16 +143,20 @@ app.layout = dbc.Container([
 
 # Update end date options based on start date
 @app.callback(
-    Output('end-date', 'options'),
-    Input('start-date', 'value')
+    [Output('end-date', 'options'),
+    Output('frame-date', 'children', allow_duplicate=True)],
+    Input('start-date', 'value'),
+    prevent_initial_call=True
 )
 def update_end_date_options(start_date):
     if start_date:
         # Ensure the end date is not before the start date
-        return [{'label': date, 'value': date} for date in list_of_unique_dates if date > start_date]
+        end_dates = [{'label': date, 'value': date} for date in list_of_unique_dates if date > start_date]
+        return end_dates, start_date
     else:
         # If no start date is selected, allow any date
-        return [{'label': date, 'value': date} for date in list_of_unique_dates]
+        end_dates = [{'label': date, 'value': date} for date in list_of_unique_dates]
+        return end_dates, start_date
 
 #==============================================================================
 
@@ -161,7 +165,7 @@ def update_end_date_options(start_date):
     Output('data-table', 'data'),
     # Output('frame-date', 'children')],
     Input('filter-button', 'n_clicks'),
-    State('start-date', 'value'),
+    Input('start-date', 'value'),
     State('end-date', 'value')
 )
 def update_data_table(n_clicks, start_date, end_date):
@@ -181,9 +185,9 @@ def update_data_table(n_clicks, start_date, end_date):
 @app.callback(
     Output('frame-date', 'children'),
     [Input('prev-btn', 'n_clicks'),
-     Input('next-btn', 'n_clicks')],
-    [State('start-date', 'value'),
-    State('end-date', 'value'),
+     Input('next-btn', 'n_clicks'),
+    Input('start-date', 'value'),],
+    [State('end-date', 'value'),
     State('frame-date', 'children')]
 )
 def update_map_date(prev_clicks, next_clicks, start_date, end_date, frame_date):
@@ -211,7 +215,7 @@ def update_map_date(prev_clicks, next_clicks, start_date, end_date, frame_date):
 @app.callback(
     Output('base-map', 'figure'),
     Input('frame-date', 'children'),
-    State('data-table', 'data')
+    Input('data-table', 'data')
 )
 def update_map(frame_date, data):
     df_results = pd.DataFrame(data)
