@@ -49,13 +49,18 @@ app.layout = dbc.Container([
     ]),
     dbc.Row([
         dbc.Col(
-            dash_table.DataTable(
-                id='data-table',
-                columns=[{"name": i, "id": i} for i in df_results.columns],
-                # data=[]
-            )
+            dcc.Store(id='data-table')
         ),
     ]),
+    # dbc.Row([
+    #     dbc.Col(
+    #         dash_table.DataTable(
+    #             id='data-table',
+    #             columns=[{"name": i, "id": i} for i in df_results.columns],
+    #             # data=[]
+    #         )
+    #     ),
+    # ]),
     # dbc.Row([
     #     dbc.Col(
     #         dcc.Slider(
@@ -149,15 +154,6 @@ def update_map_date(prev_clicks, next_clicks, start_date, end_date, frame_date):
         print(filtered_dates[new_index])
         print(filtered_dates)
         return filtered_dates[new_index]
-
-# # Callback to display the selected date
-# @app.callback(
-#     Output('frame-date', 'children'),
-#     Input('start-date', 'value')
-# )
-# def display_selected_date(selected_date):
-#     return f'Selected Date: {selected_date}'
-
 
 #==============================================================================
 
