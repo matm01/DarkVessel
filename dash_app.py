@@ -1,6 +1,7 @@
 from dash import Dash, html, dcc, callback, Output, Input, State
 from dash import dash_table, no_update, callback_context
 import dash_bootstrap_components as dbc
+from dash_bootstrap_templates import load_figure_template
 import dash_daq as daq
 from datetime import datetime
 import numpy as np
@@ -14,7 +15,8 @@ import src.predictions_with_land_mask as preds
 
 
 # Initialize the app
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+app = Dash(__name__, external_stylesheets=[dbc.themes.SPACELAB])
+load_figure_template('SPACELAB')
 
 # Timestamps for existing SAR images
 timestamp_file = 'data/timestamps_sar_images.csv'
@@ -71,8 +73,8 @@ sidebar_content = html.Div([
         options=[{'label': date, 'value': date} for date in sar_dates],
         value=sar_dates[0] if sar_dates else None,  # Sets the default value to the first date
     ),
-    html.Button('Previous', id='prev-btn', n_clicks=0),
-    html.Button('Next', id='next-btn', n_clicks=0),
+    dbc.Button('Previous', id='prev-btn', n_clicks=0),
+    dbc.Button('Next', id='next-btn', n_clicks=0),
     html.Div(id='selected-date-display')
 ])
 
@@ -86,10 +88,12 @@ map_content = html.Div([
         clickData=None),
     dash_table.DataTable(
         id='data-table',
-        columns=[{'name': 'name', 'id': 'name'},  # Change names
-                 {'name': 'lat', 'id': 'lat'},
-                 {'name': 'lon', 'id': 'lon'},
-                 {'name': 'prediction', 'id': 'prediction'}],
+        columns=[
+            {'name': 'Name', 'id': 'name'},
+            {'name': 'Latitude', 'id': 'lat'},
+            {'name': 'Longitude', 'id': 'lon'},
+            {'name': 'Prediction', 'id': 'prediction'}
+        ],
         data=[]),
 ])
 
@@ -97,7 +101,7 @@ map_content = html.Div([
 
 report_content = html.Div([
     dash_table.DataTable(
-        id='click-output',
+        id='click-output-data',
         columns=[
             {"name": "Attribute", "id": "Attribute"}, 
             {"name": "Value", "id": "Value"}
@@ -117,8 +121,8 @@ report_content = html.Div([
     ),
     html.Img(
         id='image-placeholder', 
-        src='https://www.naturalgasworld.com/content/84617/STS%20operation%20at%20Subic%20Bay_f175x175.jpg', 
-        alt='Image will be displayed here'
+        # src='data/results/S1A_IW_GRDH_1SDV_20230215T162338_20230215T162403_047249_05AB7F_600C/ship_2.png', 
+        alt='Image will be displayed here',
     ),
 ])
 
@@ -144,19 +148,19 @@ app.layout = dbc.Container(
                 dbc.Col(
                     sidebar_content,
                     width=2, # 2 out of 12 columns
-                    style={"background-color": "#f8f9fa", "padding": "0rem 1rem"},
+                    style={"background-color": "#f8f9fa", "padding": "1rem 1rem"},
                 ),
                 # Map
                 dbc.Col(
                     map_content,
                     width=8, # 8 out of 12 columns
-                    style={'background-color': '#f8f9fa', "padding": "0rem 1rem"},
+                    style={'background-color': '#f8f9fa', "padding": "1rem 1rem"},
                 ),
                 # Right sidebar
                 dbc.Col(
                     report_content,
                     width=2, # 2 out of 12 columns
-                    style={"background-color": "#f8f9fa", "padding": "0rem 1rem"},
+                    style={"background-color": "#f8f9fa", "padding": "1rem 0rem"},
                 ),
             ],
         )
@@ -169,7 +173,7 @@ app.layout = dbc.Container(
 # Define the app callbacks
 #==============================================================================
 
-# Callback to display the selected date
+# Callback to update dates
 @app.callback(
     Output('date-dropdown', 'value'),
     [Input('prev-btn', 'n_clicks'),
@@ -203,7 +207,8 @@ def display_selected_date(selected_date):
 
 # Callback to run the model on selected date
 @app.callback(
-    [Output('data-table', 'data'), Output('run-button', 'children')],
+    # [Output('data-table', 'data'), Output('run-button', 'children')],
+    Output('data-table', 'data'),
     Input('run-button', 'n_clicks'),
     State('date-dropdown', 'value')
 )
@@ -213,7 +218,7 @@ def run_model(n_clicks, date):
         mask_date = df_timestamp['DATE'] == date
         image_list = list(df_timestamp[mask_date].index)
         
-        # df_preds = pd.read_csv('data/mask_test.csv')  # FOR TESTING
+        # df_preds = pd.read_csv('results/S1A_IW_GRDH_1SDV_20220201T163119_20220201T163144_041722_04F6E6_38F5.csv')  # FOR TESTING
         
         predictions = []
         # Run predictions on all images for the selected date
@@ -225,10 +230,10 @@ def run_model(n_clicks, date):
         # Concatenate predictions
         df_preds = pd.concat(predictions, ignore_index=True, axis=0)
         
-        df_preds.columns = ['name', 'lat', 'lon', 'prediction']
+        df_preds.columns = ['name', 'lat', 'lon', 'prediction', 'image']
         data = df_preds.to_dict('records')
-        return data, 'Done!'  
-    return [], 'Run'
+        return data
+    return []
 
 #==============================================================================
 
@@ -244,10 +249,10 @@ def update_map(n_clicks, data):
             lat="lat",
             lon="lon",
             color="prediction",
-            zoom=8,
+            zoom=9,
             height=700,
             mapbox_style="carto-positron",
-            hover_data=['name', 'lat', 'lon', 'prediction']
+            hover_data=['name', 'lat', 'lon', 'prediction', 'image']
         )
         fig.update_layout(
             # mapbox_bounds={"west": 22.35, "east": 23.12, "south": 36.35, "north": 36.85},
@@ -260,7 +265,7 @@ def update_map(n_clicks, data):
     fig = px.scatter_mapbox(
         lat=[latitude],
         lon=[longitude],
-        zoom=8,
+        zoom=9,
         height=700,
         mapbox_style='carto-positron',  # open-street-map
     )
@@ -351,19 +356,35 @@ def update_map(n_clicks, data):
         
 
 @app.callback(
-    Output('click-output', 'data'),
+    Output('click-output-data', 'data'),
     Input('base-map', 'clickData'))
-def display_click_data(clickData):
+def display_click_data_table(clickData):
     if clickData is None:
         return [{}]
     else:
         point_data = clickData['points'][0]
         data = [
+            # {"Attribute": "Name", "Value": point_data.get('name')},
             {"Attribute": "Name", "Value": point_data.get('customdata', [None])[0]},
             {"Attribute": "Lat", "Value": point_data.get('lat')},
-            {"Attribute": "Lon", "Value": point_data.get('lon')}
+            {"Attribute": "Lon", "Value": point_data.get('lon')},
+            {"Attribute": "Prediction", "Value": point_data.get('prediction')},
+            # {"Attribute": "Name", "Value": point_data.get('customdata', [None])[4]},
+            # {"Attribute": "Image", "Value": point_data.get('image')}
         ]
     return data
+
+
+@app.callback(
+    Output('image-placeholder', 'src'),
+    Input('base-map', 'clickData'))
+def display_click_data_image(clickData):
+    if clickData is None:
+        return ''
+    else:
+        point_data = clickData['points'][0]
+        image = point_data.get('customdata', 'no image')[4]  # local path to image
+        return image
 
 
 # Run the app

@@ -29,6 +29,7 @@ ocean_mask = 'data/mask_laconian_bay.geojson'
 
 bucket_id = os.environ.get('SAR_BUCKET')
 local_path = f'data/{bucket_id}/VH'
+results_path = 'data/results'
 # local_path = 'data/bucket/VH'
 
 
@@ -67,37 +68,52 @@ def get_transformer(metadata: dict) -> pyproj.Transformer:
     return pyproj.Transformer.from_crs(source_crs, target_crs)
 
 
-def save_image(list_ship_positions, image):
+def save_image(list_ship_positions, image, filename, width=290, height=290):
+    images = []
+    image_id = filename.split('.')[0]
+    # image_folder_path = f'{results_path}/{image_id}'
+    # if not os.path.exists(image_folder_path):
+    #     os.makedirs(image_folder_path)
     for idx, position in enumerate(list_ship_positions):
-        img = image[position[1] - 75 : position[1] + 75, position[0] - 75 : position[0] + 75]
-        plt.imsave(f'data/temp/ship_{idx}.jpg', np.dstack((img, img, img)))
+        img = image[position[1]-width//2: position[1]+width//2,
+                    position[0]-height//2: position[0]+height//2]
+        image_path = f'assets/{image_id}_ship_{idx}.png'
+        plt.imsave(image_path, np.dstack((img, img, img)))
+        images.append(image_path)
+    return images
 
-
-def predict(filename: str, weights_path: str = yolo_weights, plot=False):
+def predict(filename: str, plot=False):
 
     print("Applying land mask to image")
     image, metadata = lmsk.clip_image(f'{local_path}/{filename}', ocean_mask)
+   
     print("Pre-processing SAR image")
     image = process_image(image)
     image = ipc.resize_image(image)
 
     if plot:
         ipc.plot_img_and_hist(image)
+    
     print("Spliting image into tiles")
     list_of_idx, tiles_list = get_tiles(image)
+    
     print("Predicting ships and STS-transfers in tiles")
     results = do_prediction(tiles_list)
+    
     print("Getting detected ships coordinates in latitude and longitude")
     transformer = get_transformer(metadata)
     ships_and_coords, list_ship_positions = geos.list_of_ships_and_coords_masked(
         results, metadata['transform'], transformer, list_of_idx
     )
 
-    save_image(list_ship_positions, image)
+    print("Saving images of detected ships")
+    images = save_image(list_ship_positions, image, filename)
 
-    csv_name = filename.split('/')[-1].split('.')[0]
+    print("Saving results to csv")
     pred_df = pd.DataFrame(ships_and_coords)
-    pred_df.to_csv(f'data/mask_test.csv', index=False)
+    pred_df['image'] = images
+    image_id = filename.split('.')[0]
+    pred_df.to_csv(f'results/{image_id}.csv', index=False)
     return pred_df
 
 

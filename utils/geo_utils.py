@@ -49,7 +49,7 @@ def list_of_ships_and_coords_masked(results: object, transform: object, transfor
             coordinates = transform * (x_center, y_center)
             converted_coordinates = transformer.transform(*coordinates)
             result_dict = {
-                'mmsi': f'ship_{counter}',
+                'name': f'ship_{counter}',
                 'latitude': converted_coordinates[0],
                 'longitude': converted_coordinates[1],
                 'prediction': int(tile_results.boxes.cls[0].cpu()),
