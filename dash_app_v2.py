@@ -1,10 +1,14 @@
-import dash_bootstrap_components as dbc
 from dash import Dash, html, dcc, callback, Output, Input, State, dash_table, callback_context
+import dash_bootstrap_components as dbc
+from dash_bootstrap_templates import load_figure_template
 import os
 import pandas as pd
 import plotly.express as px
 
-app = Dash(__name__)
+
+app = Dash(__name__, external_stylesheets=[dbc.themes.SPACELAB])
+load_figure_template('SPACELAB')
+
 
 # Timestamps for existing SAR images
 timestamp_file = 'data/timestamps_sar_images.csv'
@@ -23,78 +27,84 @@ latitude = 36.53353  # 36.34289
 longitude = 22.721728  # 22.43289
 
 
-app.layout = dbc.Container([
-    # Header
-    dbc.Row([
-        dbc.Col(
-            html.H1("Ship-to-Ship (STS) Transfer Detection in SAR images", id='header'),
-            width=12,
-            style={'textAlign': 'left', "background-color": "#f8f9fa", "padding": "1rem 1rem"}
-        ),
-    ]),
-    dbc.Row([
-        dbc.Col(
-            dcc.Dropdown(
-                id='start-date',
-                options=[{'label': date, 'value': date} for date in list_of_unique_dates],
-                value=list_of_unique_dates[0] if list_of_unique_dates else None, # Sets the default value to the first date
-            ), width=2
-        ),
-    ]),
-    dbc.Row([
-        dbc.Col(
-            dcc.Dropdown(
-                id='end-date',
-                options=[{'label': date, 'value': date} for date in list_of_unique_dates],
-                value=list_of_unique_dates[1] if list_of_unique_dates else None, # Sets the default value to the first date
-            ), width=2
-        ),
-    ]),
-    dbc.Row([
-        dbc.Col(
-            dbc.Button("Filter", id='filter-button', n_clicks=0), width=2
-        ),
-    ]),
-    dbc.Row([
-        dbc.Col(
-            dcc.Store(id='data-table')
-        ),
-    ]),
-    # dbc.Row([
-    #     dbc.Col(
-    #         dash_table.DataTable(
-    #             id='data-table',
-    #             columns=[{"name": i, "id": i} for i in df_results.columns],
-    #             # data=[]
-    #         )
-    #     ),
-    # ]),
-    # dbc.Row([
-    #     dbc.Col(
-    #         dcc.Slider(
-    #             id='frame-slider',
-    #             min=0,
-    #             max=1,
-    #             value=0,
-    #             marks={i: str(i) for i in range(0, 2)}
-    #         )
-    #     ),
-    # ]),
-    dbc.Row([
-        dbc.Col(dbc.Button('Previous', id='prev-btn', n_clicks=0), width=1),
-        dbc.Col(dbc.Button('Next', id='next-btn', n_clicks=0), width=1),
-        dbc.Col(html.Div(id='frame-date'), width=1),
-    ]),
-    dbc.Row([
-        dbc.Col(
-            dcc.Graph(
-                id='base-map',
-                config={'displayModeBar': False},
-                # clickData=None
-            ),
-        ),
+#==============================================================================
+# Define the content of the app
+#==============================================================================
+
+header = dbc.Row([
+    dbc.Col([
+        html.H1("Ship-to-Ship (STS) Transfer Detection in SAR images", id='header')
     ])
 ])
+
+sidebar = dbc.Row([
+    dbc.Col([
+        html.H2("Sidebar", className="display-4"),
+        html.Hr(),
+        html.P(
+            "A simple sidebar layout with navigation links", className="lead"
+        ),
+        dcc.Dropdown(
+            id='start-date',
+            options=[{'label': date, 'value': date} for date in list_of_unique_dates],
+            value=list_of_unique_dates[0] if list_of_unique_dates else None, # Sets the default value to the first date
+        ),
+        dcc.Dropdown(
+            id='end-date',
+            options=[{'label': date, 'value': date} for date in list_of_unique_dates],
+            value=list_of_unique_dates[1] if list_of_unique_dates else None, # Sets the default value to the first date
+        ),
+        dbc.Button("Filter", id='filter-button', n_clicks=0),
+        dcc.Store(id='data-table')
+    ])
+])
+
+interactive_map = dbc.Row([
+    dbc.Col([
+        dcc.Graph(
+            id='base-map',
+            config={'displayModeBar': False},
+            # clickData=None
+        )
+    ])
+])
+
+
+
+#==============================================================================
+# Define the layout of the app
+#==============================================================================
+
+
+app.layout = dbc.Container([
+        dbc.Row([
+            dbc.Col(
+                header,
+                width=12,
+                style={'textAlign': 'left', "background-color": "#f8f9fa", "padding": "1rem 1rem"}
+            ),
+        ]),
+        # Sidebar
+        dbc.Row([
+            dbc.Col(
+                sidebar,
+                width=2
+            ),
+            dbc.Col(
+                interactive_map,
+                width=8
+            ),
+            dbc.Col(
+                dbc.Row([
+                    dbc.Col(dbc.Button('Previous', id='prev-btn', n_clicks=0), width=1),
+                    dbc.Col(dbc.Button('Next', id='next-btn', n_clicks=0), width=1),
+                    dbc.Col(html.Div(id='frame-date'), width=1),
+                ]), width=2
+
+            ),
+        ]),
+    ], fluid=True
+)
 
 #==============================================================================
 
