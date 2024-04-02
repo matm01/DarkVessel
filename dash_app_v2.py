@@ -24,6 +24,14 @@ longitude = 22.721728  # 22.43289
 
 
 app.layout = dbc.Container([
+    # Header
+    dbc.Row([
+        dbc.Col(
+            html.H1("Ship-to-Ship (STS) Transfer Detection in SAR images", id='header'),
+            width=12,
+            style={'textAlign': 'left', "background-color": "#f8f9fa", "padding": "1rem 1rem"}
+        ),
+    ]),
     dbc.Row([
         dbc.Col(
             dcc.Dropdown(
