@@ -59,6 +59,15 @@ sidebar = dbc.Row([
     ])
 ])
 
+control = dbc.Row([
+    dbc.Col(dbc.ButtonGroup([
+        dbc.Button('Previous', id='prev-btn', n_clicks=0),
+        dbc.Button('Next', id='next-btn', n_clicks=0),
+    ]), width=2),
+    dbc.Col(html.Div(id='frame-date'), width=2),
+])
+
+
 interactive_map = dbc.Row([
     dbc.Col([
         dcc.Graph(
@@ -90,18 +99,19 @@ app.layout = dbc.Container([
                 sidebar,
                 width=2
             ),
-            dbc.Col(
+            dbc.Col([
+                control,
                 interactive_map,
-                width=8
+                ],width=8
             ),
-            dbc.Col(
-                dbc.Row([
-                    dbc.Col(dbc.Button('Previous', id='prev-btn', n_clicks=0), width=1),
-                    dbc.Col(dbc.Button('Next', id='next-btn', n_clicks=0), width=1),
-                    dbc.Col(html.Div(id='frame-date'), width=1),
-                ]), width=2
+            # dbc.Col(
+            #     dbc.Row([
+            #         dbc.Col(dbc.Button('Previous', id='prev-btn', n_clicks=0), width=1),
+            #         dbc.Col(dbc.Button('Next', id='next-btn', n_clicks=0), width=1),
+            #         dbc.Col(html.Div(id='frame-date'), width=1),
+            #     ]), width=2
 
-            ),
+            # ),
         ]),
     ], fluid=True
 )
