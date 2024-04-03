@@ -348,7 +348,7 @@ def update_map(frame_date, data):
                 title=dict(text=''),  # No title
                 orientation="h",  # Horizontal orientation
                 yanchor="top",  # Anchor legend at the bottom
-                y=1.05,  # Position the legend below the plot
+                y=1.0,  # Position the legend below the plot
                 xanchor="center",  # Center the legend horizontally
                 x=0.5  # Center position of the legend (0.5 is the middle)
             ),
