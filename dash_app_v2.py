@@ -40,7 +40,11 @@ BACKGROUND_COLOR = "#f8f9fa"
 
 header = dbc.Row([
     dbc.Col([
-        html.H1("Ship-to-Ship transfer detection in SAR images", id='header', className="mb-4")
+        html.H1(
+            "Ship-to-Ship transfer detection in SAR images", 
+            id='header', 
+            className="mb-4"
+            )
     ])
 ])
 
@@ -95,8 +99,8 @@ sidebar = dbc.Row([
 
 control = dbc.Row([
     dbc.Col(dbc.ButtonGroup([
-        dbc.Button('Previous', color='secondary', id='prev-btn', n_clicks=0),
-        dbc.Button('Next', color='secondary', id='next-btn', n_clicks=0),
+        dbc.Button('Previous', color='secondary', style={"border": "1px solid black"}, id='prev-btn', n_clicks=0),
+        dbc.Button('Next', color='secondary', style={"border": "1px solid black"}, id='next-btn', n_clicks=0),
     ]), style={'width': 3, 'align':'end'}),
     dbc.Col(html.H2(id='frame-date'), width=3),
 ])
@@ -165,7 +169,7 @@ app.layout = dbc.Container([
             dbc.Col(
                 header,
                 width=12,
-                style={'textAlign': 'left',  "padding": "1rem 2rem"}
+                style={'textAlign': 'left', "background-color": BACKGROUND_COLOR,  "padding": "1rem 2rem"}
             ),
         ]),
         # Sidebar
@@ -310,7 +314,7 @@ def update_map(frame_date, data):
             lon="longitude",
             color="prediction",
             zoom=10,
-            height=700,
+            height=600,
             hover_data=[
                 'latitude', 'longitude', 'mmsi', 'name', 'country', 
                 'timestamp', 'timedelta', 'prediction', 'image', 'date'
