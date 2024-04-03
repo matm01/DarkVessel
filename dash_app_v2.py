@@ -8,8 +8,8 @@ import pandas as pd
 import plotly.express as px
 
 
-app = Dash(__name__, external_stylesheets=[dbc.themes.SOLAR])
-load_figure_template('SOLAR')
+app = Dash(__name__, external_stylesheets=[dbc.themes.LUX])
+load_figure_template('LUX')
 
 
 # Timestamps for existing SAR images
@@ -52,14 +52,14 @@ sidebar = dbc.Row([
         dcc.Dropdown(
             id='start-date',
             options=[{'label': date, 'value': date} for date in list_of_unique_dates],
-            value=list_of_unique_dates[0] if list_of_unique_dates else None, # Sets the default value to the first date
+            value=list_of_unique_dates[9] if list_of_unique_dates else None, # Sets the default value to the first date
         ),
         html.Br(),
         html.P("Select end date", className="lead"),
         dcc.Dropdown(
             id='end-date',
             options=[{'label': date, 'value': date} for date in list_of_unique_dates],
-            value=list_of_unique_dates[9] if list_of_unique_dates else None, # Sets the default value to the first date
+            value=list_of_unique_dates[-1] if list_of_unique_dates else None, # Sets the default value to the first date
         ),
         html.Br(),
         dbc.Button("Filter", id='filter-button', n_clicks=0),
@@ -84,10 +84,10 @@ sidebar = dbc.Row([
             },
             style_data={
                 'height':'20px',
-                # 'border': 'none',
+                'border': 'none',
                 },
             style_table={'overflowX': 'auto'},
-            # style_header={'display': 'none'}
+            style_header={'display': 'none'}
         ),        
         dcc.Store(id='data-table'),
     ])
@@ -97,8 +97,8 @@ control = dbc.Row([
     dbc.Col(dbc.ButtonGroup([
         dbc.Button('Previous', id='prev-btn', n_clicks=0),
         dbc.Button('Next', id='next-btn', n_clicks=0),
-    ]), style={'width': 3, 'align':'middle'}),
-    dbc.Col(html.H3(id='frame-date'), width=2),
+    ]), style={'width': 3, 'align':'end'}),
+    dbc.Col(html.H3(id='frame-date'), width=3),
 ])
 
 
@@ -119,23 +119,6 @@ sar_ais_match = dbc.Row([
             html.H3("Matching detections with AIS data"),
             dash_table.DataTable(
                 id='sar-ais-match-table',
-                # columns=[
-                #     {"name": "Feature", "id": "Feature"}, 
-                #     {"name": "Value", "id": "Value"}
-                # ],
-                # style_cell_conditional=[
-                #     {'if': {'column_id': 'Feature'}, 'width': '60px'},
-                #     {'if': {'column_id': 'Value'}, 'width': '240px'}
-                # ],
-                # style_cell={
-                #     'textAlign': 'left', 
-                #     'minWidth': '60px',
-                #     'maxWidth': '240px',
-                #     'whiteSpace': 'normal'
-                # },
-                # style_data=dict(height='20px'),
-                # style_table={'overflowX': 'auto'},
-                # style_header={'display': 'none'}
             ),
         ], style={'top': '5rem'})
 ])
@@ -161,14 +144,14 @@ ship_report = dbc.Row([
                     'maxWidth': '230px',
                     'whiteSpace': 'normal'
                 },
-                style_data=dict(height='20px'),
+                style_data=dict(height='20px', border='none'),
                 style_table={'overflowX': 'auto'},
-                # style_header={'display': 'none'}
+                style_header={'display': 'none'}
             ),
             html.Img(
                 id='image-placeholder', 
                 alt='Click on data point to display image',
-                style={'width': '290px', 'height': '300px'}
+                style={'width': '410px', 'height': '380px'}
             ),
         ], style={'top': '5rem'})
 ])
@@ -195,11 +178,11 @@ app.layout = dbc.Container([
                 control,
                 interactive_map,
                 sar_ais_match,
-                ],width=8, style={"padding": "1rem 1rem"}
+                ],width=7, style={"padding": "1rem 1rem"}
             ),
             dbc.Col([
                 ship_report,
-                ], width=2, style={"padding": "3rem 1rem"}),
+                ], width=3, style={"padding": "3rem 1rem"}),
         ]),
     ], fluid=True
 )
@@ -332,14 +315,19 @@ def update_map(frame_date, data):
                 'latitude', 'longitude', 'mmsi', 'name', 'country', 
                 'timestamp', 'timedelta', 'prediction', 'image', 'date'
                 ],
+            labels={
+                "Ship": "Ship",
+                "STS": "STS",
+                "Not available (AIS)": "AIS",
+                 },
             color_discrete_map={
-                "STS": "blue",
-                "Ship": "red",
-                "Not available (AIS)": "green"
+                "STS": "red",
+                "Ship": "green",
+                "Not available (AIS)": "yellow"
             },
         )
         fig.update_traces(
-            marker=dict(size=8, symbol="circle"),
+            marker=dict(size=12, symbol="circle"),
             selector=dict(mode="markers"),
         )
         fig.update_layout(
@@ -347,10 +335,12 @@ def update_map(frame_date, data):
             margin={"r": 10, "t": 10, "l": 10, "b": 10},
             # mapbox_style="carto-positron",
             # mapbox_style="streets",
-            # mapbox_style="satellite-streets",
-            mapbox_style="mapbox://styles/mapbox/navigation-guidance-night-v2",
+            mapbox_style="satellite-streets",
+            # mapbox_style="mapbox://styles/mapbox/navigation-guidance-night-v2",
             mapbox_accesstoken=token,
             legend=dict(
+                font_size=15,
+                font_color='white',
                 title=dict(text=''),  # No title
                 orientation="h",  # Horizontal orientation
                 yanchor="top",  # Anchor legend at the bottom
@@ -358,8 +348,8 @@ def update_map(frame_date, data):
                 xanchor="center",  # Center the legend horizontally
                 x=0.5  # Center position of the legend (0.5 is the middle)
             ),
-            legend_bgcolor='rgba(131, 148, 160, 0.8)',
-            paper_bgcolor='rgba(131, 148, 160, 1)',
+            legend_bgcolor='rgba(26, 26, 26, 1)',
+            paper_bgcolor='rgba(26, 26, 26, 1)',
             
         )
         fig.update(layout_coloraxis_showscale=False)
