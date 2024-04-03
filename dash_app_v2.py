@@ -59,13 +59,13 @@ sidebar = dbc.Row([
         dcc.Dropdown(
             id='end-date',
             options=[{'label': date, 'value': date} for date in list_of_unique_dates],
-            value=list_of_unique_dates[-1] if list_of_unique_dates else None, # Sets the default value to the first date
+            value=list_of_unique_dates[9] if list_of_unique_dates else None, # Sets the default value to the first date
         ),
         html.Br(),
         dbc.Button("Filter", id='filter-button', n_clicks=0),
         html.Br(),
         html.Hr(),
-        html.P("Summary Statistics", className="lead"),
+        html.H3("Summary statistics"),  # , className="lead"
         dash_table.DataTable(
             id='summary-table',
             columns=[
@@ -108,14 +108,15 @@ interactive_map = dbc.Row([
             id='base-map',
             config={'displayModeBar': False},
             clickData=None
-        )
+        ),
+        html.Br() 
     ])
 ])
 
 
 sar_ais_match = dbc.Row([
         dbc.Col([
-            html.P("Matching STS transfers with AIS data", className="lead"),
+            html.H3("Matching detections with AIS data"),
             dash_table.DataTable(
                 id='sar-ais-match-table',
                 # columns=[
@@ -142,21 +143,22 @@ sar_ais_match = dbc.Row([
 
 ship_report = dbc.Row([
         dbc.Col([
-            html.P("Vessel details", className="lead"),
+            html.Hr(),
+            html.H3("Vessel details"),  # , className="lead"
             dash_table.DataTable(
                 id='click-output-data',
                 columns=[
                     {"name": "Feature", "id": "Feature"}, 
-                    {"name": "Value", "id": "Value"}
+                    {"name": "", "id": "Value"}
                 ],
                 style_cell_conditional=[
-                    {'if': {'column_id': 'Feature'}, 'width': '60px'},
-                    {'if': {'column_id': 'Value'}, 'width': '240px'}
+                    {'if': {'column_id': 'Feature'}, 'width': '70px'},
+                    {'if': {'column_id': 'Value'}, 'width': '230px'}
                 ],
                 style_cell={
                     'textAlign': 'left', 
-                    'minWidth': '60px',
-                    'maxWidth': '240px',
+                    'minWidth': '70px',
+                    'maxWidth': '230px',
                     'whiteSpace': 'normal'
                 },
                 style_data=dict(height='20px'),
@@ -193,11 +195,11 @@ app.layout = dbc.Container([
                 control,
                 interactive_map,
                 sar_ais_match,
-                ],width=8, style={"padding": "1rem 0rem"}
+                ],width=8, style={"padding": "1rem 1rem"}
             ),
             dbc.Col([
                 ship_report,
-                ], width=2, style={"padding": "2rem 0rem"}),
+                ], width=2, style={"padding": "3rem 1rem"}),
         ]),
     ], fluid=True
 )
@@ -356,7 +358,9 @@ def update_map(frame_date, data):
                 xanchor="center",  # Center the legend horizontally
                 x=0.5  # Center position of the legend (0.5 is the middle)
             ),
-            plot_bgcolor='rgba(100,100,100,1)'
+            legend_bgcolor='rgba(131, 148, 160, 0.8)',
+            paper_bgcolor='rgba(131, 148, 160, 1)',
+            
         )
         fig.update(layout_coloraxis_showscale=False)
         fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
@@ -383,7 +387,9 @@ def update_map(frame_date, data):
             xanchor="center",  # Center the legend horizontally
             x=0.5  # Center position of the legend (0.5 is the middle)
         ),
-        plot_bgcolor='rgba(100,100,100,1)'
+        # paper_bgcolor='lightskyblue',
+        # plot_bgcolor='lightblue' 
+        # plot_bgcolor='rgba(100,100,100,1)'
         
     )
     fig.update(layout_coloraxis_showscale=False)
@@ -405,34 +411,22 @@ def display_closest_match_table(clickData, data, frame_date):
     else:
         point_data = clickData['points'][0]
         latitude = point_data.get('customdata', [None])[0]
-        # lat_formatted = decimal_to_dms_latitude(lat)
         longitude = point_data.get('customdata', [None])[1]
-        # lon_formatted = decimal_to_dms_longitude(lon)
-        # mmsi = point_data.get('customdata', [None])[2]
         name = point_data.get('customdata', [None])[3]
-        # country = point_data.get('customdata', [None])[4]
         timestamp = point_data.get('customdata', [None])[5]
-        # timedelta = point_data.get('customdata', [None])[6]
         prediction = point_data.get('customdata', [None])[7]
-        # image = point_data.get('customdata', [None])[8]
         click_data = [{
             "latitude": latitude,
             "longitude": longitude,
             "name": name,
             "timestamps": timestamp,
             "prediciton": prediction},
-            # {"Feature": "MMSI", "Value": mmsi},
-            # {"Feature": "Country", "Value": country},
-            # {"Feature": "Time Delta", "Value": timedelta},
-            # {"Feature": "Image", "Value": image}
         ]
         df_click = pd.DataFrame(click_data)
-        print(df_click)
         df_results = pd.DataFrame(data)
         mask_date = df_results['date'] == frame_date
         mask_ais = df_results['prediction'] == 'Not available (AIS)'
         df_ais = df_results[mask_date & mask_ais].copy()
-        print(df_ais)
         if prediction == 'STS':
             lat, lon = float(df_click.iloc[0]['latitude']), float(df_click.iloc[0]['longitude'])
             df_ais['distance'] = df_ais.apply(
@@ -447,6 +441,28 @@ def display_closest_match_table(clickData, data, frame_date):
             df_ais.columns = df_ais.columns.str.capitalize()
             df_ais = df_ais.rename(
                 columns={'Distance': 'Distance (km)', 'Mmsi': 'MMSI', 'Name': 'Ship Name'}
+                )
+            return df_ais.to_dict('records')
+        elif prediction == 'Ship':
+            lat, lon = float(df_click.iloc[0]['latitude']), float(df_click.iloc[0]['longitude'])
+            df_ais['distance'] = df_ais.apply(
+                lambda row: distance.distance(
+                    (lat, lon), (row['latitude'], row['longitude'])
+                    ).km, axis=1
+                )
+            df_ais['distance'] = df_ais['distance'].round(3)
+            df_ais = df_ais.sort_values(by='distance')
+            df_ais = df_ais.head(1).reset_index(drop=True)
+            df_ais = df_ais[['distance', 'mmsi', 'name', 'country', 'timedelta']]
+            # df_ais.columns = df_ais.columns.str.capitalize()
+            df_ais = df_ais.rename(
+                columns={
+                    'distance': 'Distance (km)',
+                    'mmsi': 'MMSI',
+                    'name': 'Ship Name',
+                    'country': 'Country',
+                    'timedelta': 'Time Delta'
+                    }
                 )
             return df_ais.to_dict('records')
         
