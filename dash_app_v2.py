@@ -1,6 +1,7 @@
 from dash import Dash, html, dcc, callback, Output, Input, State, dash_table, callback_context
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
+from geopy import distance
 import numpy as np
 import os
 import pandas as pd
@@ -28,12 +29,18 @@ latitude = 36.53353  # 36.34289
 longitude = 22.721728  # 22.43289
 
 #==============================================================================
+# Define the style of the app
+#==============================================================================
+
+BACKGROUND_COLOR = "#f8f9fa"
+
+#==============================================================================
 # Define the content of the app
 #==============================================================================
 
 header = dbc.Row([
     dbc.Col([
-        html.H1("Ship-to-Ship (STS) Transfer Detection in SAR images", id='header', className="mb-4")
+        html.H1("Ship-to-Ship transfer detection in SAR images", id='header', className="mb-4")
     ])
 ])
 
@@ -52,7 +59,7 @@ sidebar = dbc.Row([
         dcc.Dropdown(
             id='end-date',
             options=[{'label': date, 'value': date} for date in list_of_unique_dates],
-            value=list_of_unique_dates[1] if list_of_unique_dates else None, # Sets the default value to the first date
+            value=list_of_unique_dates[-1] if list_of_unique_dates else None, # Sets the default value to the first date
         ),
         html.Br(),
         dbc.Button("Filter", id='filter-button', n_clicks=0),
@@ -66,16 +73,19 @@ sidebar = dbc.Row([
                 {"name": "", "id": "statistics"}
             ],
             style_cell_conditional=[
-                {'if': {'column_id': 'Description'}, 'width': '250px'},
-                {'if': {'column_id': 'Statistics'}, 'width': '50px'}
+                {'if': {'column_id': 'Description'}, 'width': '250px', 'textAlign': 'right'},
+                {'if': {'column_id': 'Statistics'}, 'width': '50px', 'textAlign': 'center',}
             ],
             style_cell={
                 'textAlign': 'left', 
                 'minWidth': '50px',
                 'maxWidth': '250px',
-                'whiteSpace': 'normal'
+                'whiteSpace': 'normal',
             },
-            style_data=dict(height='20px'),
+            style_data={
+                'height':'20px',
+                # 'border': 'none',
+                },
             style_table={'overflowX': 'auto'},
             # style_header={'display': 'none'}
         ),        
@@ -84,11 +94,11 @@ sidebar = dbc.Row([
 ])
 
 control = dbc.Row([
-    dbc.Col(html.Div(id='frame-date'), width=2),
     dbc.Col(dbc.ButtonGroup([
         dbc.Button('Previous', id='prev-btn', n_clicks=0),
         dbc.Button('Next', id='next-btn', n_clicks=0),
-    ]), style={'width': 5, 'align':'middle'}),
+    ]), style={'width': 3, 'align':'middle'}),
+    dbc.Col(html.H3(id='frame-date'), width=2),
 ])
 
 
@@ -101,6 +111,34 @@ interactive_map = dbc.Row([
         )
     ])
 ])
+
+
+sar_ais_match = dbc.Row([
+        dbc.Col([
+            html.P("Matching STS transfers with AIS data", className="lead"),
+            dash_table.DataTable(
+                id='sar-ais-match-table',
+                # columns=[
+                #     {"name": "Feature", "id": "Feature"}, 
+                #     {"name": "Value", "id": "Value"}
+                # ],
+                # style_cell_conditional=[
+                #     {'if': {'column_id': 'Feature'}, 'width': '60px'},
+                #     {'if': {'column_id': 'Value'}, 'width': '240px'}
+                # ],
+                # style_cell={
+                #     'textAlign': 'left', 
+                #     'minWidth': '60px',
+                #     'maxWidth': '240px',
+                #     'whiteSpace': 'normal'
+                # },
+                # style_data=dict(height='20px'),
+                # style_table={'overflowX': 'auto'},
+                # style_header={'display': 'none'}
+            ),
+        ], style={'top': '5rem'})
+])
+
 
 ship_report = dbc.Row([
         dbc.Col([
@@ -142,23 +180,24 @@ app.layout = dbc.Container([
             dbc.Col(
                 header,
                 width=12,
-                style={'textAlign': 'left', "background-color": "#f8f9fa", "padding": "1rem 2rem"}
+                style={'textAlign': 'left',  "padding": "1rem 2rem"}
             ),
         ]),
         # Sidebar
         dbc.Row([
             dbc.Col(
                 sidebar,
-                width=2, style={'textAlign': 'left', "background-color": "#f8f9fa", "padding": "3rem 1rem"},
+                width=2, style={'textAlign': 'left',"padding": "3rem 1rem"},
             ),
             dbc.Col([
                 control,
                 interactive_map,
-                ],width=8, style={"background-color": "#f8f9fa", "padding": "1rem 0rem"}
+                sar_ais_match,
+                ],width=8, style={"padding": "1rem 0rem"}
             ),
             dbc.Col([
                 ship_report,
-                ], width=2, style={"background-color": "#f8f9fa", "padding": "2rem 0rem"}),
+                ], width=2, style={"padding": "2rem 0rem"}),
         ]),
     ], fluid=True
 )
@@ -174,7 +213,7 @@ app.layout = dbc.Container([
     Input('start-date', 'value'),
     prevent_initial_call=True
 )
-def update_end_date_options(start_date):
+def update_end_date_options_and_frame_date(start_date):
     if start_date:
         # Ensure the end date is not before the start date
         end_dates = [{'label': date, 'value': date} for date in list_of_unique_dates if date > start_date]
@@ -199,6 +238,7 @@ def update_data_table(n_clicks, start_date, end_date):
         filtered_df = df_results[mask_dates]
         filtered_df = filtered_df.sort_values('date')
         data = filtered_df.to_dict('records')
+        # print(data)
         return data
     else:
         data = df_results.to_dict('records')
@@ -214,13 +254,13 @@ def update_data_table(n_clicks, start_date, end_date):
     State('start-date', 'value'),
     State('end-date', 'value')
 )
-def update_data_table(n_clicks, data, start_date, end_date):
+def update_summary_table(n_clicks, data, start_date, end_date):
     start = pd.to_datetime(start_date)
     end = pd.to_datetime(end_date)
     if n_clicks and data:
         df_filtered = pd.DataFrame(data)
-        sts_detected =  df_filtered['prediction'].value_counts().loc['sts']
-        ship_detected =  df_filtered['prediction'].value_counts().loc['ship']
+        sts_detected =  df_filtered['prediction'].value_counts().loc['STS']
+        ship_detected =  df_filtered['prediction'].value_counts().loc['Ship']
         number_of_days = (end - start)/ np.timedelta64(1, 'D')
         available_images = df_filtered['date'].nunique()
         revisit_frequency = 1 / (available_images / number_of_days)
@@ -229,7 +269,7 @@ def update_data_table(n_clicks, data, start_date, end_date):
             {"description": "Ship detected", "statistics": ship_detected},
             {"description": "Period (days)", "statistics": number_of_days},
             {"description": "SAR images", "statistics": available_images},
-            {"description": "Revisit frequency", "statistics": round(revisit_frequency, 2)},
+            {"description": "Revisit frequency (days)", "statistics": round(revisit_frequency, 2)},
             
         ]
         return stats  #, start_date
@@ -247,7 +287,7 @@ def update_data_table(n_clicks, data, start_date, end_date):
     [State('end-date', 'value'),
     State('frame-date', 'children')]
 )
-def update_map_date(prev_clicks, next_clicks, start_date, end_date, frame_date):
+def update_frame_date(prev_clicks, next_clicks, start_date, end_date, frame_date):
     mask_dates = (unique_dates >= start_date) & (unique_dates <= end_date)
     filtered_dates = unique_dates[mask_dates].tolist()
     ctx = callback_context
@@ -286,19 +326,37 @@ def update_map(frame_date, data):
             color="prediction",
             zoom=10,
             height=700,
-            hover_data=['latitude', 'longitude', 'mmsi', 'name', 'country', 'timestamp', 'timedelta', 'prediction', 'image', 'date']
+            hover_data=[
+                'latitude', 'longitude', 'mmsi', 'name', 'country', 
+                'timestamp', 'timedelta', 'prediction', 'image', 'date'
+                ],
+            color_discrete_map={
+                "STS": "blue",
+                "Ship": "red",
+                "Not available (AIS)": "green"
+            },
         )
         fig.update_traces(
             marker=dict(size=8, symbol="circle"),
             selector=dict(mode="markers"),
         )
         fig.update_layout(
-            margin={"r": 5, "t": 5, "l": 5, "b": 5},
+            hovermode='closest',
+            margin={"r": 10, "t": 10, "l": 10, "b": 10},
             # mapbox_style="carto-positron",
             # mapbox_style="streets",
             # mapbox_style="satellite-streets",
             mapbox_style="mapbox://styles/mapbox/navigation-guidance-night-v2",
-            mapbox_accesstoken=token
+            mapbox_accesstoken=token,
+            legend=dict(
+                title=dict(text=''),  # No title
+                orientation="h",  # Horizontal orientation
+                yanchor="top",  # Anchor legend at the bottom
+                y=1.05,  # Position the legend below the plot
+                xanchor="center",  # Center the legend horizontally
+                x=0.5  # Center position of the legend (0.5 is the middle)
+            ),
+            plot_bgcolor='rgba(100,100,100,1)'
         )
         fig.update(layout_coloraxis_showscale=False)
         fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
@@ -317,11 +375,83 @@ def update_map(frame_date, data):
     fig.update_layout(
         margin={"r": 5, "t": 5, "l": 5, "b": 5},
         mapbox_style="mapbox://styles/mapbox/navigation-guidance-night-v2",
-        mapbox_accesstoken=token
+        mapbox_accesstoken=token,
+        legend=dict(
+            orientation="h",  # Horizontal orientation
+            yanchor="bottom",  # Anchor legend at the bottom
+            y=-0.5,  # Position the legend below the plot
+            xanchor="center",  # Center the legend horizontally
+            x=0.5  # Center position of the legend (0.5 is the middle)
+        ),
+        plot_bgcolor='rgba(100,100,100,1)'
+        
     )
     fig.update(layout_coloraxis_showscale=False)
     fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
-    return fig  
+    return fig
+
+#==============================================================================
+
+# AIS data matching
+@app.callback(
+    Output('sar-ais-match-table', 'data'),
+    Input('base-map', 'clickData'),
+    [State('data-table', 'data'),
+    State('frame-date', 'children')]
+)
+def display_closest_match_table(clickData, data, frame_date):
+    if clickData is None:
+        return [{}]
+    else:
+        point_data = clickData['points'][0]
+        latitude = point_data.get('customdata', [None])[0]
+        # lat_formatted = decimal_to_dms_latitude(lat)
+        longitude = point_data.get('customdata', [None])[1]
+        # lon_formatted = decimal_to_dms_longitude(lon)
+        # mmsi = point_data.get('customdata', [None])[2]
+        name = point_data.get('customdata', [None])[3]
+        # country = point_data.get('customdata', [None])[4]
+        timestamp = point_data.get('customdata', [None])[5]
+        # timedelta = point_data.get('customdata', [None])[6]
+        prediction = point_data.get('customdata', [None])[7]
+        # image = point_data.get('customdata', [None])[8]
+        click_data = [{
+            "latitude": latitude,
+            "longitude": longitude,
+            "name": name,
+            "timestamps": timestamp,
+            "prediciton": prediction},
+            # {"Feature": "MMSI", "Value": mmsi},
+            # {"Feature": "Country", "Value": country},
+            # {"Feature": "Time Delta", "Value": timedelta},
+            # {"Feature": "Image", "Value": image}
+        ]
+        df_click = pd.DataFrame(click_data)
+        print(df_click)
+        df_results = pd.DataFrame(data)
+        mask_date = df_results['date'] == frame_date
+        mask_ais = df_results['prediction'] == 'Not available (AIS)'
+        df_ais = df_results[mask_date & mask_ais].copy()
+        print(df_ais)
+        if prediction == 'STS':
+            lat, lon = float(df_click.iloc[0]['latitude']), float(df_click.iloc[0]['longitude'])
+            df_ais['distance'] = df_ais.apply(
+                lambda row: distance.distance(
+                    (lat, lon), (row['latitude'], row['longitude'])
+                    ).km, axis=1
+                )
+            df_ais['distance'] = df_ais['distance'].round(3)
+            df_ais = df_ais.sort_values(by='distance')
+            df_ais = df_ais.head(2).reset_index(drop=True)
+            df_ais = df_ais[['distance', 'mmsi', 'name', 'country', 'timedelta']]
+            df_ais.columns = df_ais.columns.str.capitalize()
+            df_ais = df_ais.rename(
+                columns={'Distance': 'Distance (km)', 'Mmsi': 'MMSI', 'Name': 'Ship Name'}
+                )
+            return df_ais.to_dict('records')
+        
+    # return click_data
+
 
 #==============================================================================
 
@@ -365,7 +495,7 @@ def display_click_data_table(clickData):
         prediction = point_data.get('customdata', [None])[7]
         # image = point_data.get('customdata', [None])[8]
         data = [
-            {"Feature": "Date", "Value": timestamp},
+            {"Feature": "Timestamp", "Value": timestamp},
             {"Feature": "Prediction", "Value": prediction},
             {"Feature": "Latitude", "Value": lat_formatted},
             {"Feature": "Longitude", "Value": lon_formatted},
