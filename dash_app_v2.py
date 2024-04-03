@@ -95,10 +95,10 @@ sidebar = dbc.Row([
 
 control = dbc.Row([
     dbc.Col(dbc.ButtonGroup([
-        dbc.Button('Previous', id='prev-btn', n_clicks=0),
-        dbc.Button('Next', id='next-btn', n_clicks=0),
+        dbc.Button('Previous', color='secondary', id='prev-btn', n_clicks=0),
+        dbc.Button('Next', color='secondary', id='next-btn', n_clicks=0),
     ]), style={'width': 3, 'align':'end'}),
-    dbc.Col(html.H3(id='frame-date'), width=3),
+    dbc.Col(html.H2(id='frame-date'), width=3),
 ])
 
 
@@ -151,7 +151,7 @@ ship_report = dbc.Row([
             html.Img(
                 id='image-placeholder', 
                 alt='Click on data point to display image',
-                style={'width': '410px', 'height': '380px'}
+                style={'width': '410px', 'height': '375px'}
             ),
         ], style={'top': '5rem'})
 ])
