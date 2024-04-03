@@ -37,6 +37,9 @@ local_path = f'data/{bucket_id}/VH'
 # Get list of SAR images from local path
 list_of_imgs = os.listdir(local_path)
 
+# Mabox token
+token = os.environ.get('MAPBOX_TOKEN')
+
 # Base map for Laconian Bay
 latitude = 36.53353  # 36.34289 
 longitude = 22.721728  # 22.43289
@@ -68,112 +71,144 @@ sidebar_content = html.Div([
         vertical=True,
         pills=True,
     ),
-    dcc.Dropdown(
-        id='date-dropdown',
-        options=[{'label': date, 'value': date} for date in sar_dates],
-        value=sar_dates[0] if sar_dates else None,  # Sets the default value to the first date
-    ),
-    dbc.Button('Previous', id='prev-btn', n_clicks=0),
-    dbc.Button('Next', id='next-btn', n_clicks=0),
-    html.Div(id='selected-date-display')
+    # dcc.Dropdown(
+    #     id='date-dropdown',
+    #     options=[{'label': date, 'value': date} for date in sar_dates],
+    #     value=sar_dates[0] if sar_dates else None,  # Sets the default value to the first date
+    # ),
+    # dbc.Button('Previous', id='prev-btn', n_clicks=0),
+    # dbc.Button('Next', id='next-btn', n_clicks=0),
+    # html.Div(id='selected-date-display'),
+    # daq.BooleanSwitch(id='boolean-switch', on=False),
+    # html.Div(id='boolean-switch-output-1')
+    
 ])
 
 #==============================================================================
 
-map_content = html.Div([
-    dbc.Button('Run', id='run-button', n_clicks=0),
-    dcc.Graph(
-        id='base-map',
-        config={'displayModeBar': False},
-        clickData=None),
-    dash_table.DataTable(
-        id='data-table',
-        columns=[
-            {'name': 'Name', 'id': 'name'},
-            {'name': 'Latitude', 'id': 'lat'},
-            {'name': 'Longitude', 'id': 'lon'},
-            {'name': 'Prediction', 'id': 'prediction'}
-        ],
-        data=[]),
+controls = dbc.Row([
+            dbc.Col(dcc.Dropdown(
+                id='date-dropdown',
+                options=[{'label': date, 'value': date} for date in sar_dates],
+                value=sar_dates[0] if sar_dates else None, # Sets the default value to the first date
+            ), width=2),
+            dbc.Col(dbc.Button('Previous', id='prev-btn', n_clicks=0), width=1),
+            dbc.Col(dbc.Button('Next', id='next-btn', n_clicks=0), width=1),
+            # dbc.Col(html.Div(id='selected-date-display'), width=1),
+            dbc.Col(daq.BooleanSwitch(id='boolean-switch', on=False), width=3),
+            dbc.Col(html.Div(id='boolean-switch-output-1'), width=1),
+            dbc.Col(dbc.Button('Run', id='run-button', n_clicks=0), width=2, align='end'),
 ])
 
 #==============================================================================
 
-report_content = html.Div([
-    dash_table.DataTable(
-        id='click-output-data',
-        columns=[
-            {"name": "Attribute", "id": "Attribute"}, 
-            {"name": "Value", "id": "Value"}
-        ],
-        style_cell_conditional=[
-            {'if': {'column_id': 'Attribute'}, 'width': '60px'},
-            {'if': {'column_id': 'Value'}, 'width': '240px'}
-        ],
-        style_cell={
-            'textAlign': 'left', 
-            'minWidth': '60px',
-            'maxWidth': '240px',
-            'whiteSpace': 'normal'
-        },
-        style_data=dict(height='20px'),
-        style_table={'overflowX': 'auto'},
-    ),
-    html.Img(
-        id='image-placeholder', 
-        # src='data/results/S1A_IW_GRDH_1SDV_20230215T162338_20230215T162403_047249_05AB7F_600C/ship_2.png', 
-        alt='Image will be displayed here',
-    ),
+map_content =  dbc.Row([
+        dbc.Col([
+            # dbc.Button('Run', id='run-button', n_clicks=0),
+            dcc.Graph(
+                id='base-map',
+                config={'displayModeBar': False},
+                clickData=None
+            ),
+            dash_table.DataTable(
+                id='data-table',
+                columns=[
+                    {'name': 'Name', 'id': 'name'},
+                    {'name': 'Latitude', 'id': 'lat'},
+                    {'name': 'Longitude', 'id': 'lon'},
+                    {'name': 'Prediction', 'id': 'prediction'}
+                ],
+                data=[]
+            )
+        ])
+])
+
+# map_content = html.Div([
+#     dbc.Button('Run', id='run-button', n_clicks=0),
+#     dcc.Graph(
+#         id='base-map',
+#         config={'displayModeBar': False},
+#         clickData=None),
+#     dash_table.DataTable(
+#         id='data-table',
+#         columns=[
+#             {'name': 'Name', 'id': 'name'},
+#             {'name': 'Latitude', 'id': 'lat'},
+#             {'name': 'Longitude', 'id': 'lon'},
+#             {'name': 'Prediction', 'id': 'prediction'}
+#         ],
+#         data=[]),
+# ])
+
+#==============================================================================
+
+report_content = dbc.Row([
+        dbc.Col([
+            dash_table.DataTable(
+                id='click-output-data',
+                columns=[
+                    {"name": "Attribute", "id": "Attribute"}, 
+                    {"name": "Value", "id": "Value"}
+                ],
+                style_cell_conditional=[
+                    {'if': {'column_id': 'Attribute'}, 'width': '60px'},
+                    {'if': {'column_id': 'Value'}, 'width': '240px'}
+                ],
+                style_cell={
+                    'textAlign': 'left', 
+                    'minWidth': '60px',
+                    'maxWidth': '240px',
+                    'whiteSpace': 'normal'
+                },
+                style_data=dict(height='20px'),
+                style_table={'overflowX': 'auto'},
+            ),
+            html.Img(
+                id='image-placeholder', 
+                alt='Click on data point to display image',
+                style={'width': '300px', 'height': '300px'}
+            ),
+        ], style={'top': '5rem'})
 ])
 
 #==============================================================================
 # Define the layout of the app
 #==============================================================================
 
-
-app.layout = dbc.Container(
-    [
-        dbc.Row(
-            [
-                # Header
-                dbc.Col(
-                    header_content,
-                    style={'textAlign': 'left', "background-color": "#f8f9fa", "padding": "1rem 1rem"},
-                ),
-            ],
-        ),
-        dbc.Row(
-            [
-                # Left sidebar
-                dbc.Col(
-                    sidebar_content,
-                    width=2, # 2 out of 12 columns
-                    style={"background-color": "#f8f9fa", "padding": "1rem 1rem"},
-                ),
-                # Map
-                dbc.Col(
-                    map_content,
-                    width=8, # 8 out of 12 columns
-                    style={'background-color': '#f8f9fa', "padding": "1rem 1rem"},
-                ),
-                # Right sidebar
-                dbc.Col(
-                    report_content,
-                    width=2, # 2 out of 12 columns
-                    style={"background-color": "#f8f9fa", "padding": "1rem 0rem"},
-                ),
-            ],
-        )
-    ],
-    fluid=True,
+app.layout = dbc.Container([
+        dbc.Row([
+            # Header
+            dbc.Col(
+                header_content,
+                style={'textAlign': 'left', "background-color": "#f8f9fa", "padding": "1rem 1rem"},
+                width=12
+            )
+        ]),
+        dbc.Row([
+            # Left sidebar
+            dbc.Col(
+                sidebar_content,
+                width=2, # 2 out of 12 columns
+                style={"background-color": "#f8f9fa", "padding": "1rem 1rem"},
+            ),
+            # Map
+            dbc.Col([
+                controls,
+                map_content,
+            ], width=8, style={'background-color': '#f8f9fa', "padding": "1rem 1rem"}),
+            # Right sidebar
+            dbc.Col([
+                report_content,
+            ], width=2, style={"background-color": "#f8f9fa", "top": "2rem", "padding": "2rem 0rem"}),
+        ])
+    ], fluid=True,
 )
-
 
 #==============================================================================
 # Define the app callbacks
 #==============================================================================
 
-# Callback to update dates
+# Update dates
 @app.callback(
     Output('date-dropdown', 'value'),
     [Input('prev-btn', 'n_clicks'),
@@ -196,19 +231,34 @@ def update_dropdown(prev_clicks, next_clicks, current_value):
         return sar_dates[new_index]
 
 # Callback to display the selected date
-@app.callback(
-    Output('selected-date-display', 'children'),
-    [Input('date-dropdown', 'value')]
-)
-def display_selected_date(selected_date):
-    return f'Selected Date: {selected_date}'
+# @app.callback(
+#     Output('selected-date-display', 'children'),
+#     [Input('date-dropdown', 'value')]
+# )
+# def display_selected_date(selected_date):
+#     return f'Selected Date: {selected_date}'
 
 #==============================================================================
 
-# Callback to run the model on selected date
+# @app.callback(
+#     Output('run-button', 'disabled'),
+#     Input('date-dropdown', 'value'),
+#     State('run-button', 'disabled')
+# )
+# def update_button_state(date, is_disabled):
+#     # If a date is selected, enable the button
+#     if date:
+#         return False
+#     # If no date is selected, keep the button disabled
+#     return True
+
+
+#==============================================================================
+
+# Run the model on selected date
 @app.callback(
-    # [Output('data-table', 'data'), Output('run-button', 'children')],
-    Output('data-table', 'data'),
+    [Output('data-table', 'data'), Output('run-button', 'n_clicks')],
+    # Output('data-table', 'data'),
     Input('run-button', 'n_clicks'),
     State('date-dropdown', 'value')
 )
@@ -218,31 +268,41 @@ def run_model(n_clicks, date):
         mask_date = df_timestamp['DATE'] == date
         image_list = list(df_timestamp[mask_date].index)
         
-        # df_preds = pd.read_csv('results/S1A_IW_GRDH_1SDV_20220201T163119_20220201T163144_041722_04F6E6_38F5.csv')  # FOR TESTING
+        # Get timestamp for selected image
+        image_timestamp = df_timestamp.loc[image_list[0], 'TIMESTAMP']
         
-        predictions = []
-        # Run predictions on all images for the selected date
-        for image_id in image_list:
-            image_file = f'{image_id}.tif'
-            print(f"Predictions on {image_file}")
-            df_preds = preds.predict(image_file, plot=False)
-            predictions.append(df_preds)
-        # Concatenate predictions
-        df_preds = pd.concat(predictions, ignore_index=True, axis=0)
+        # For testing purposes, only use the first two images
+        results_files = os.listdir('results')[:2]
+        df_preds = pd.concat([pd.read_csv(f'results/{results_file}') for results_file in results_files], ignore_index=True, axis=0)
+        
+        # predictions = []
+        # # Run predictions on all images for the selected date
+        # for image_id in image_list:
+        #     image_file = f'{image_id}.tif'
+        #     print(f"Predictions on {image_file}")
+        #     df_preds = preds.predict(image_file, plot=False)
+        #     predictions.append(df_preds)
+        # # Concatenate predictions
+        # df_preds = pd.concat(predictions, ignore_index=True, axis=0)
         
         df_preds.columns = ['name', 'lat', 'lon', 'prediction', 'image']
         data = df_preds.to_dict('records')
-        return data
-    return []
+        # print(f'Data table: {data}')
+        return data, 1
+    else:
+        print('No data returned from run_model!')
+        return [], 0
 
 #==============================================================================
 
+# Update map with predictions
 @app.callback(
     Output('base-map', 'figure'),
     [Input('run-button', 'n_clicks'), Input('data-table', 'data')]
 )
 def update_map(n_clicks, data):
     if n_clicks > 0:
+        print(f'Updating map on clicks with {data}')
         # # Convert data to DataFrame for easier manipulation
         fig = px.scatter_mapbox(
             data,
@@ -256,12 +316,17 @@ def update_map(n_clicks, data):
         )
         fig.update_layout(
             # mapbox_bounds={"west": 22.35, "east": 23.12, "south": 36.35, "north": 36.85},
-            margin={"r": 5, "t": 5, "l": 5, "b": 5}
+            margin={"r": 5, "t": 5, "l": 5, "b": 5},
+            # mapbox_style="streets",
+            mapbox_style="satellite-streets",
+            # mapbox_style="mapbox://styles/mapbox/navigation-guidance-night-v2",
+            mapbox_accesstoken=token
         )
         fig.update(layout_coloraxis_showscale=False)
         fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
         return fig
-    
+    # else:
+    print(f'Update map no clicks: {data}')
     fig = px.scatter_mapbox(
         lat=[latitude],
         lon=[longitude],
@@ -278,7 +343,9 @@ def update_map(n_clicks, data):
     )
     fig.update_layout(
         # mapbox_bounds={"west": 22.35, "east": 23.12, "south": 36.35, "north": 36.85},
-        margin={"r": 5, "t": 5, "l": 5, "b": 5}
+        margin={"r": 5, "t": 5, "l": 5, "b": 5},
+        mapbox_style="mapbox://styles/mapbox/navigation-guidance-night-v2",
+        mapbox_accesstoken=token
     )
     fig.update(layout_coloraxis_showscale=False)
     fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
@@ -286,7 +353,57 @@ def update_map(n_clicks, data):
 
 #==============================================================================
 
-# Define a callback to update the graph when the switch is toggled
+# Define a callback to show AIS data when toggle switch is on
+@app.callback(
+    Output('base-map', 'figure', allow_duplicate=True),
+    Input('boolean-switch', 'on'),
+    [State('date-dropdown', 'value'), State('base-map', 'figure')],
+    prevent_initial_call=True
+)
+def update_map(toggle_on, date, current_figure):
+     # Get image ID from date picker value
+    mask_date = df_timestamp['DATE'] == date
+    image_list = list(df_timestamp[mask_date].index)
+    # Get timestamp for selected image
+    image_timestamp = df_timestamp.loc[image_list[0], 'TIMESTAMP']
+
+    # Filter for date range of SAR image
+    timedelta = 45  # minutes
+    start = pd.to_datetime(image_timestamp) - pd.Timedelta(timedelta, 'min')
+    end = pd.to_datetime(image_timestamp) + pd.Timedelta(timedelta, 'min')
+    df_ais_filtered = df_ais[df_ais.timestamp.between(start, end)].copy()
+
+    # Aggregate coordinates for each vessel
+    df_ais_agg = df_ais_filtered.groupby(['name', 'mmsi']).agg({'lat': 'mean', 'lon': 'mean'}).reset_index()
+    df_ais_agg['prediction'] = 0
+    if toggle_on:
+        # Show all data points
+        fig = px.scatter_mapbox(
+            df_ais_agg,
+            lat="lat",
+            lon="lon",
+            color="prediction",
+            zoom=8,
+            height=700,
+            mapbox_style="carto-positron",
+            hover_data=['name', 'mmsi','lat', 'lon']
+        )
+        # fig.update_layout(margin={"r": 0, "t": 0, "l": 0, "b": 0})
+        fig.update(layout_coloraxis_showscale=False)
+        # fig.update_mapboxes(center=dict(lat=latitude, lon=longitude))
+        # fig.update_layout(mapbox_bounds={"west": 20.0, "east": 25.0, "south": 35.0, "north": 37.0})
+        
+        fig.update_traces(
+            marker=dict(
+                size=15, # Adjust the size as needed
+                symbol="circle", # Set symbol to 'circle'
+            ),
+            selector=dict(mode="markers"),
+        )
+        return fig
+    else:
+        return current_figure
+
 # @app.callback(
 #     Output('base-map', 'figure'), 
 #     [Input('toggle-switch', 'on')],
@@ -353,7 +470,25 @@ def update_map(n_clicks, data):
 #             "Lat": point_data['lat'],
 #             "Lon": point_data['lon']
 #         }]
-        
+
+def decimal_to_dms_latitude(decimal_lat):
+    is_negative = decimal_lat < 0
+    decimal_lat = abs(decimal_lat)
+    degrees = int(decimal_lat)
+    minutes = int((decimal_lat - degrees) * 60)
+    seconds = (decimal_lat - degrees - minutes/60) * 3600
+    direction = "S" if is_negative else "N"
+    return f"{degrees}°{minutes}'{seconds:.1f}\"{direction}"
+
+def decimal_to_dms_longitude(decimal_lon):
+    is_negative = decimal_lon < 0
+    decimal_lon = abs(decimal_lon)
+    degrees = int(decimal_lon)
+    minutes = int((decimal_lon - degrees) * 60)
+    seconds = (decimal_lon - degrees - minutes/60) * 3600
+    direction = "W" if is_negative else "E"
+    return f"{degrees}°{minutes}'{seconds:.1f}\"{direction}"
+
 
 @app.callback(
     Output('click-output-data', 'data'),
@@ -363,11 +498,13 @@ def display_click_data_table(clickData):
         return [{}]
     else:
         point_data = clickData['points'][0]
+        lat_formatted = decimal_to_dms_latitude(point_data.get('lat'))
+        lon_formatted = decimal_to_dms_longitude(point_data.get('lon'))
         data = [
             # {"Attribute": "Name", "Value": point_data.get('name')},
             {"Attribute": "Name", "Value": point_data.get('customdata', [None])[0]},
-            {"Attribute": "Lat", "Value": point_data.get('lat')},
-            {"Attribute": "Lon", "Value": point_data.get('lon')},
+            {"Attribute": "Latitude", "Value": lat_formatted},
+            {"Attribute": "Longitude", "Value": lon_formatted},
             {"Attribute": "Prediction", "Value": point_data.get('prediction')},
             # {"Attribute": "Name", "Value": point_data.get('customdata', [None])[4]},
             # {"Attribute": "Image", "Value": point_data.get('image')}
@@ -382,9 +519,12 @@ def display_click_data_image(clickData):
     if clickData is None:
         return ''
     else:
-        point_data = clickData['points'][0]
-        image = point_data.get('customdata', 'no image')[4]  # local path to image
-        return image
+        try:
+            point_data = clickData['points'][0]
+            image = point_data.get('customdata', 'no image')[4]  # local path to image
+            return image
+        except IndexError:
+            return ''
 
 
 # Run the app
