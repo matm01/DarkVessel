@@ -56,7 +56,7 @@ sidebar = dbc.Row([
         dcc.Dropdown(
             id='start-date',
             options=[{'label': date, 'value': date} for date in list_of_unique_dates],
-            value=list_of_unique_dates[9] if list_of_unique_dates else None, # Sets the default value to the first date
+            value=list_of_unique_dates[85] if list_of_unique_dates else None, # Sets the default value to the first date
         ),
         html.Br(),
         html.P("Select end date", className="lead"),
@@ -319,15 +319,15 @@ def update_map(frame_date, data):
                 'latitude', 'longitude', 'mmsi', 'name', 'country', 
                 'timestamp', 'timedelta', 'prediction', 'image', 'date'
                 ],
-            labels={
-                "Ship": "Ship",
-                "STS": "STS",
-                "Not available (AIS)": "AIS",
-                 },
+            # labels={
+            #     "Ship": "Ship",
+            #     "STS": "STS",
+            #     "Not available (AIS)": "AIS",
+            #      },
             color_discrete_map={
                 "STS": "red",
                 "Ship": "green",
-                "Not available (AIS)": "yellow"
+                "AIS": "yellow"
             },
         )
         fig.update_traces(
@@ -419,7 +419,7 @@ def display_closest_match_table(clickData, data, frame_date):
         df_click = pd.DataFrame(click_data)
         df_results = pd.DataFrame(data)
         mask_date = df_results['date'] == frame_date
-        mask_ais = df_results['prediction'] == 'Not available (AIS)'
+        mask_ais = df_results['prediction'] == 'AIS'
         df_ais = df_results[mask_date & mask_ais].copy()
         if prediction == 'STS':
             lat, lon = float(df_click.iloc[0]['latitude']), float(df_click.iloc[0]['longitude'])
